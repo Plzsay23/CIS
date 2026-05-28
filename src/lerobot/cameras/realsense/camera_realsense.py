@@ -539,11 +539,15 @@ class RealSenseCamera(Camera):
                 break
             except Exception as e:
                 failure_count += 1
-                if failure_count <= 10 or failure_count % 100 == 0:
-                    logger.warning(
-                        f"Error reading frame in background thread for {self}: {e} "
+
+                # RealSense 두 대 동시 사용 시 try_wait_for_frames timeout은 자주 발생할 수 있음.
+                # 안정성보다 host 유지가 우선이면 warning으로 올리지 않고 debug로만 남긴다.
+                if failure_count == 1 or failure_count % 300 == 0:
+                    logger.debug(
+                        f"Suppressed RealSense read failure for {self}: {e} "
                         f"(consecutive_failures={failure_count})"
                     )
+
                 time.sleep(self.reconnect_retry_delay_s)
 
     def _start_read_thread(self) -> None:

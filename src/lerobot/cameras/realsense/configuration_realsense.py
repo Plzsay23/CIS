@@ -59,8 +59,8 @@ class RealSenseCameraConfig(CameraConfig):
     rotation: Cv2Rotation = Cv2Rotation.NO_ROTATION
     warmup_s: float = 8.0
     startup_delay_s: float = 1.0
-    max_frame_age_ms: int = 10000
-    read_timeout_ms: int = 4000
+    max_frame_age_ms: int = 0
+    read_timeout_ms: int = 10000
     reconnect_retry_delay_s: float = 0.05
 
     def __post_init__(self) -> None:
