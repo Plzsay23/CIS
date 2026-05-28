@@ -58,7 +58,7 @@ def lekiwi_cameras_config() -> dict[str, CameraConfig]:
 @RobotConfig.register_subclass("lekiwi")
 @dataclass
 class LeKiwiConfig(RobotConfig):
-    port: str = "/dev/ttyACM0"
+    port: str = "/dev/follower"
     disable_torque_on_disconnect: bool = True
     max_relative_target: float | dict[str, float] | None = None
     cameras: dict[str, CameraConfig] = field(default_factory=lekiwi_cameras_config)
