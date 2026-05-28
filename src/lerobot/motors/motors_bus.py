@@ -49,7 +49,7 @@ from lerobot.utils.decorators import check_if_already_connected, check_if_not_co
 from lerobot.utils.utils import enter_pressed, move_cursor_up
 
 NameOrID: TypeAlias = str | int
-type Value = int | float
+Value: TypeAlias = int | float
 
 logger = logging.getLogger(__name__)
 
