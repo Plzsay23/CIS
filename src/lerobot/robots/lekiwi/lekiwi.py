@@ -122,8 +122,13 @@ class LeKiwi(Robot):
             )
             self.calibrate()
 
-        for cam in self.cameras.values():
-            cam.connect()
+        for cam_name, cam in self.cameras.items():
+            logger.info("Connecting camera '%s': %s", cam_name, cam)
+            cam.connect(warmup=True)
+
+            # RealSense 여러 대를 같은 USB controller/Hub에서 열 때
+            # 첫 camera pipeline 안정화 시간을 준다.
+            time.sleep(1.0)
 
         self.configure()
         logger.info(f"{self} connected.")

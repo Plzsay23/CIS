@@ -136,6 +136,7 @@ class RealSenseCamera(Camera):
         self.color_mode = config.color_mode
         self.use_depth = config.use_depth
         self.warmup_s = config.warmup_s
+        self.startup_delay_s = config.startup_delay_s
         self.max_frame_age_ms = config.max_frame_age_ms
         self.read_timeout_ms = config.read_timeout_ms
         self.reconnect_retry_delay_s = config.reconnect_retry_delay_s
@@ -199,18 +200,18 @@ class RealSenseCamera(Camera):
             ) from e
 
         self._configure_capture_settings()
+
+        # RealSense 두 대를 동시에 사용할 때 pipeline.start() 직후 첫 프레임이 늦게 오는 경우가 있음.
+        # background thread 이벤트 기반 warmup 전에, hardware에서 직접 첫 프레임을 받아 buffer를 seed한다.
+        self.warmup_s = max(float(self.warmup_s), 1.0)
+
+        if self.startup_delay_s > 0:
+            time.sleep(self.startup_delay_s)
+
+        if warmup:
+            self._warmup_from_hardware()
+
         self._start_read_thread()
-
-        # NOTE(Steven/Caroline): Enforcing at least one second of warmup as RS cameras need a bit of time before the first read. If we don't wait, the first read from the warmup will raise.
-        self.warmup_s = max(self.warmup_s, 1)
-
-        start_time = time.time()
-        while time.time() - start_time < self.warmup_s:
-            self.async_read(timeout_ms=self.warmup_s * 1000)
-            time.sleep(0.1)
-        with self.frame_lock:
-            if self.latest_color_frame is None or self.use_depth and self.latest_depth_frame is None:
-                raise ConnectionError(f"{self} failed to capture frames during warmup.")
 
         logger.info(f"{self} connected.")
 
@@ -372,6 +373,59 @@ class RealSenseCamera(Camera):
             raise RuntimeError("No depth frame available. Ensure camera is streaming.")
 
         return depth_map
+    
+    def _store_frames(self, frames: Any) -> None:
+        color_frame_raw = frames.get_color_frame()
+        if color_frame_raw is None:
+            raise RuntimeError(f"{self} received frameset without color frame.")
+
+        color_frame = np.asanyarray(color_frame_raw.get_data())
+        processed_color_frame = self._postprocess_image(color_frame)
+
+        processed_depth_frame = None
+        if self.use_depth:
+            depth_frame_raw = frames.get_depth_frame()
+            if depth_frame_raw is None:
+                raise RuntimeError(f"{self} received frameset without depth frame.")
+
+            depth_frame = np.asanyarray(depth_frame_raw.get_data())
+            processed_depth_frame = self._postprocess_image(depth_frame, depth_frame=True)
+
+        capture_time = time.perf_counter()
+
+        with self.frame_lock:
+            self.latest_color_frame = processed_color_frame
+            if self.use_depth:
+                self.latest_depth_frame = processed_depth_frame
+            self.latest_timestamp = capture_time
+
+        self.new_frame_event.set()
+
+
+    def _warmup_from_hardware(self) -> None:
+        if self.rs_pipeline is None:
+            raise RuntimeError(f"{self}: rs_pipeline must be initialized before warmup.")
+
+        deadline = time.perf_counter() + self.warmup_s
+        last_error: Exception | None = None
+
+        # read_timeout_ms가 너무 크면 warmup_s보다 오래 hardware wait에 묶일 수 있으므로
+        # warmup 단계에서는 짧은 timeout으로 여러 번 재시도한다.
+        per_attempt_timeout_ms = max(500, min(int(self.read_timeout_ms), 2000))
+
+        while time.perf_counter() < deadline:
+            try:
+                frames = self.rs_pipeline.wait_for_frames(timeout_ms=per_attempt_timeout_ms)
+                self._store_frames(frames)
+                return
+            except Exception as e:
+                last_error = e
+                time.sleep(0.1)
+
+        raise TimeoutError(
+            f"Timed out warming up {self} after {self.warmup_s:.1f}s. "
+            f"Last error: {last_error}"
+        )
 
     def _read_from_hardware(self):
         if self.rs_pipeline is None:
@@ -478,23 +532,7 @@ class RealSenseCamera(Camera):
         while not stop_event.is_set():
             try:
                 frame = self._read_from_hardware()
-                color_frame_raw = frame.get_color_frame()
-                color_frame = np.asanyarray(color_frame_raw.get_data())
-                processed_color_frame = self._postprocess_image(color_frame)
-
-                if self.use_depth:
-                    depth_frame_raw = frame.get_depth_frame()
-                    depth_frame = np.asanyarray(depth_frame_raw.get_data())
-                    processed_depth_frame = self._postprocess_image(depth_frame, depth_frame=True)
-
-                capture_time = time.perf_counter()
-
-                with self.frame_lock:
-                    self.latest_color_frame = processed_color_frame
-                    if self.use_depth:
-                        self.latest_depth_frame = processed_depth_frame
-                    self.latest_timestamp = capture_time
-                self.new_frame_event.set()
+                self._store_frames(frame)
                 failure_count = 0
 
             except DeviceNotConnectedError:
