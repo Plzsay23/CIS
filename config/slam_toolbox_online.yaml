@@ -6,9 +6,10 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_link
-    scan_topic: /scan
+    scan_topic: /scan_front
 
     # Mode
+    mode: mapping
     mode: mapping
     debug_logging: false
     throttle_scans: 1
