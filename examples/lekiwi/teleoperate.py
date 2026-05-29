@@ -24,10 +24,11 @@ from lerobot.utils.visualization_utils import init_rerun, log_rerun_data
 
 FPS = 30
 
+
 def main():
     # Create the robot and teleoperator configurations
-    robot_config = LeKiwiClientConfig(remote_ip="100.105.112.48", id="lekiwi")
-    teleop_arm_config = SO100LeaderConfig(port="/dev/leader", id="leader")
+    robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="my_lekiwi")
+    teleop_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
     keyboard_config = KeyboardTeleopConfig(id="my_laptop_keyboard")
 
     # Initialize the robot and teleoperator
@@ -57,10 +58,6 @@ def main():
         # Get teleop action
         # Arm
         arm_action = leader_arm.get_action()
-        
-        if "gripper.pos" in arm_action:
-            arm_action["gripper.pos"] = 100.0 - arm_action["gripper.pos"]
-        
         arm_action = {f"arm_{k}": v for k, v in arm_action.items()}
         # Keyboard
         keyboard_keys = keyboard.get_action()

@@ -17,6 +17,7 @@ Provides the RealSenseCamera class for capturing frames from Intel RealSense cam
 """
 
 import logging
+import sys
 import time
 from threading import Event, Lock, Thread
 from typing import TYPE_CHECKING, Any
@@ -41,14 +42,7 @@ from ..utils import get_cv2_rotation
 from .configuration_realsense import RealSenseCameraConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _get_rs():
-    global rs
-    if rs is None:
-        import pyrealsense2 as _rs
-        rs = _rs
-    return rs
+pkg_name = "pyrealsense2-macosx" if sys.platform == "darwin" else "pyrealsense2"
 
 
 class RealSenseCamera(Camera):
@@ -122,7 +116,7 @@ class RealSenseCamera(Camera):
         Args:
             config: The configuration settings for the camera.
         """
-        _get_rs()
+        require_package(pkg_name, extra="intelrealsense", import_name="pyrealsense2")
         super().__init__(config)
 
         self.config = config
@@ -136,10 +130,6 @@ class RealSenseCamera(Camera):
         self.color_mode = config.color_mode
         self.use_depth = config.use_depth
         self.warmup_s = config.warmup_s
-        self.startup_delay_s = config.startup_delay_s
-        self.max_frame_age_ms = config.max_frame_age_ms
-        self.read_timeout_ms = config.read_timeout_ms
-        self.reconnect_retry_delay_s = config.reconnect_retry_delay_s
 
         self.rs_pipeline: rs.pipeline | None = None
         self.rs_profile: rs.pipeline_profile | None = None
@@ -200,18 +190,18 @@ class RealSenseCamera(Camera):
             ) from e
 
         self._configure_capture_settings()
-
-        # RealSense 두 대를 동시에 사용할 때 pipeline.start() 직후 첫 프레임이 늦게 오는 경우가 있음.
-        # background thread 이벤트 기반 warmup 전에, hardware에서 직접 첫 프레임을 받아 buffer를 seed한다.
-        self.warmup_s = max(float(self.warmup_s), 1.0)
-
-        if self.startup_delay_s > 0:
-            time.sleep(self.startup_delay_s)
-
-        if warmup:
-            self._warmup_from_hardware()
-
         self._start_read_thread()
+
+        # NOTE(Steven/Caroline): Enforcing at least one second of warmup as RS cameras need a bit of time before the first read. If we don't wait, the first read from the warmup will raise.
+        self.warmup_s = max(self.warmup_s, 1)
+
+        start_time = time.time()
+        while time.time() - start_time < self.warmup_s:
+            self.async_read(timeout_ms=self.warmup_s * 1000)
+            time.sleep(0.1)
+        with self.frame_lock:
+            if self.latest_color_frame is None or self.use_depth and self.latest_depth_frame is None:
+                raise ConnectionError(f"{self} failed to capture frames during warmup.")
 
         logger.info(f"{self} connected.")
 
@@ -230,7 +220,7 @@ class RealSenseCamera(Camera):
             ImportError: If pyrealsense2 is not installed.
         """
         found_cameras_info = []
-        context = _get_rs().context()
+        context = rs.context()
         devices = context.query_devices()
 
         for device in devices:
@@ -364,7 +354,7 @@ class RealSenseCamera(Camera):
 
         self.new_frame_event.clear()
 
-        _ = self.async_read(timeout_ms=self.read_timeout_ms)
+        _ = self.async_read(timeout_ms=10000)
 
         with self.frame_lock:
             depth_map = self.latest_depth_frame
@@ -373,66 +363,13 @@ class RealSenseCamera(Camera):
             raise RuntimeError("No depth frame available. Ensure camera is streaming.")
 
         return depth_map
-    
-    def _store_frames(self, frames: Any) -> None:
-        color_frame_raw = frames.get_color_frame()
-        if color_frame_raw is None:
-            raise RuntimeError(f"{self} received frameset without color frame.")
-
-        color_frame = np.asanyarray(color_frame_raw.get_data())
-        processed_color_frame = self._postprocess_image(color_frame)
-
-        processed_depth_frame = None
-        if self.use_depth:
-            depth_frame_raw = frames.get_depth_frame()
-            if depth_frame_raw is None:
-                raise RuntimeError(f"{self} received frameset without depth frame.")
-
-            depth_frame = np.asanyarray(depth_frame_raw.get_data())
-            processed_depth_frame = self._postprocess_image(depth_frame, depth_frame=True)
-
-        capture_time = time.perf_counter()
-
-        with self.frame_lock:
-            self.latest_color_frame = processed_color_frame
-            if self.use_depth:
-                self.latest_depth_frame = processed_depth_frame
-            self.latest_timestamp = capture_time
-
-        self.new_frame_event.set()
-
-
-    def _warmup_from_hardware(self) -> None:
-        if self.rs_pipeline is None:
-            raise RuntimeError(f"{self}: rs_pipeline must be initialized before warmup.")
-
-        deadline = time.perf_counter() + self.warmup_s
-        last_error: Exception | None = None
-
-        # read_timeout_ms가 너무 크면 warmup_s보다 오래 hardware wait에 묶일 수 있으므로
-        # warmup 단계에서는 짧은 timeout으로 여러 번 재시도한다.
-        per_attempt_timeout_ms = max(500, min(int(self.read_timeout_ms), 2000))
-
-        while time.perf_counter() < deadline:
-            try:
-                frames = self.rs_pipeline.wait_for_frames(timeout_ms=per_attempt_timeout_ms)
-                self._store_frames(frames)
-                return
-            except Exception as e:
-                last_error = e
-                time.sleep(0.1)
-
-        raise TimeoutError(
-            f"Timed out warming up {self} after {self.warmup_s:.1f}s. "
-            f"Last error: {last_error}"
-        )
 
     def _read_from_hardware(self):
         if self.rs_pipeline is None:
             raise RuntimeError(f"{self}: rs_pipeline must be initialized before use.")
 
-        ret, frame = self.rs_pipeline.try_wait_for_frames(timeout_ms=self.read_timeout_ms)
-        
+        ret, frame = self.rs_pipeline.try_wait_for_frames(timeout_ms=10000)
+
         if not ret or frame is None:
             raise RuntimeError(f"{self} read failed (status={ret}).")
 
@@ -473,7 +410,7 @@ class RealSenseCamera(Camera):
 
         self.new_frame_event.clear()
 
-        frame = self.async_read(timeout_ms=self.read_timeout_ms)
+        frame = self.async_read(timeout_ms=10000)
 
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
         logger.debug(f"{self} read took: {read_duration_ms:.1f}ms")
@@ -524,31 +461,50 @@ class RealSenseCamera(Camera):
         return processed_image
 
     def _read_loop(self) -> None:
-        stop_event = self.stop_event
-        if stop_event is None:
+        """
+        Internal loop run by the background thread for asynchronous reading.
+
+        On each iteration:
+        1. Reads a color frame with 500ms timeout
+        2. Stores result in latest_frame and updates timestamp (thread-safe)
+        3. Sets new_frame_event to notify listeners
+
+        Stops on DeviceNotConnectedError, logs other errors and continues.
+        """
+        if self.stop_event is None:
             raise RuntimeError(f"{self}: stop_event is not initialized before starting read loop.")
 
         failure_count = 0
-        while not stop_event.is_set():
+        while not self.stop_event.is_set():
             try:
                 frame = self._read_from_hardware()
-                self._store_frames(frame)
+                color_frame_raw = frame.get_color_frame()
+                color_frame = np.asanyarray(color_frame_raw.get_data())
+                processed_color_frame = self._postprocess_image(color_frame)
+
+                if self.use_depth:
+                    depth_frame_raw = frame.get_depth_frame()
+                    depth_frame = np.asanyarray(depth_frame_raw.get_data())
+                    processed_depth_frame = self._postprocess_image(depth_frame, depth_frame=True)
+
+                capture_time = time.perf_counter()
+
+                with self.frame_lock:
+                    self.latest_color_frame = processed_color_frame
+                    if self.use_depth:
+                        self.latest_depth_frame = processed_depth_frame
+                    self.latest_timestamp = capture_time
+                self.new_frame_event.set()
                 failure_count = 0
 
             except DeviceNotConnectedError:
                 break
             except Exception as e:
-                failure_count += 1
-
-                # RealSense 두 대 동시 사용 시 try_wait_for_frames timeout은 자주 발생할 수 있음.
-                # 안정성보다 host 유지가 우선이면 warning으로 올리지 않고 debug로만 남긴다.
-                if failure_count == 1 or failure_count % 300 == 0:
-                    logger.debug(
-                        f"Suppressed RealSense read failure for {self}: {e} "
-                        f"(consecutive_failures={failure_count})"
-                    )
-
-                time.sleep(self.reconnect_retry_delay_s)
+                if failure_count <= 10:
+                    failure_count += 1
+                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                else:
+                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e
 
     def _start_read_thread(self) -> None:
         """Starts or restarts the background read thread if it's not running."""
@@ -560,16 +516,15 @@ class RealSenseCamera(Camera):
         self.thread.start()
 
     def _stop_read_thread(self) -> None:
-        stop_event = self.stop_event
-        thread = self.thread
+        """Signals the background read thread to stop and waits for it to join."""
+        if self.stop_event is not None:
+            self.stop_event.set()
 
-        if stop_event is not None:
-            stop_event.set()
-
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=2.0)
+        if self.thread is not None and self.thread.is_alive():
+            self.thread.join(timeout=2.0)
 
         self.thread = None
+        self.stop_event = None
 
         with self.frame_lock:
             self.latest_color_frame = None
@@ -622,7 +577,7 @@ class RealSenseCamera(Camera):
 
     # NOTE(Steven): Missing implementation for depth for now
     @check_if_not_connected
-    def read_latest(self, max_age_ms: int | None = None) -> NDArray[Any]:
+    def read_latest(self, max_age_ms: int = 500) -> NDArray[Any]:
         """Return the most recent (color) frame captured immediately (Peeking).
 
         This method is non-blocking and returns whatever is currently in the
@@ -648,11 +603,8 @@ class RealSenseCamera(Camera):
         if frame is None or timestamp is None:
             raise RuntimeError(f"{self} has not captured any frames yet.")
 
-        if max_age_ms is None:
-            max_age_ms = self.max_frame_age_ms
-
         age_ms = (time.perf_counter() - timestamp) * 1e3
-        if max_age_ms > 0 and age_ms > max_age_ms:
+        if age_ms > max_age_ms:
             raise TimeoutError(
                 f"{self} latest frame is too old: {age_ms:.1f} ms (max allowed: {max_age_ms} ms)."
             )

@@ -36,17 +36,14 @@ HF_REPO_ID = "<hf_username>/<dataset_repo_id>"
 
 def main():
     # Create the robot and teleoperator configurations
-    robot_config = LeKiwiClientConfig(remote_ip="100.105.112.48", id="lekiwi")
-    leader_arm_config = SO100LeaderConfig(port="/dev/leader", id="leader")
+    robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
+    leader_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
     keyboard_config = KeyboardTeleopConfig()
 
     # Initialize the robot and teleoperator
     robot = LeKiwiClient(robot_config)
     leader_arm = SO100Leader(leader_arm_config)
     keyboard = KeyboardTeleop(keyboard_config)
-
-    # TODO(Steven): Update this example to use pipelines
-    teleop_action_processor, robot_action_processor, robot_observation_processor = make_default_processors()
 
     # Configure the dataset features
     action_features = hw_to_dataset_features(robot.action_features, ACTION)
@@ -77,6 +74,10 @@ def main():
         if not robot.is_connected or not leader_arm.is_connected or not keyboard.is_connected:
             raise ValueError("Robot or teleop is not connected!")
 
+        teleop_action_processor, robot_action_processor, robot_observation_processor = (
+            make_default_processors()
+        )
+
         print("Starting record loop...")
         recorded_episodes = 0
         while recorded_episodes < NUM_EPISODES and not events["stop_recording"]:
@@ -87,14 +88,14 @@ def main():
                 robot=robot,
                 events=events,
                 fps=FPS,
+                teleop_action_processor=teleop_action_processor,
+                robot_action_processor=robot_action_processor,
+                robot_observation_processor=robot_observation_processor,
                 dataset=dataset,
                 teleop=[leader_arm, keyboard],
                 control_time_s=EPISODE_TIME_SEC,
                 single_task=TASK_DESCRIPTION,
                 display_data=True,
-                teleop_action_processor=teleop_action_processor,
-                robot_action_processor=robot_action_processor,
-                robot_observation_processor=robot_observation_processor,
             )
 
             # Reset the environment if not stopping or re-recording
@@ -106,13 +107,13 @@ def main():
                     robot=robot,
                     events=events,
                     fps=FPS,
+                    teleop_action_processor=teleop_action_processor,
+                    robot_action_processor=robot_action_processor,
+                    robot_observation_processor=robot_observation_processor,
                     teleop=[leader_arm, keyboard],
                     control_time_s=RESET_TIME_SEC,
                     single_task=TASK_DESCRIPTION,
                     display_data=True,
-                    teleop_action_processor=teleop_action_processor,
-                    robot_action_processor=robot_action_processor,
-                    robot_observation_processor=robot_observation_processor,
                 )
 
             if events["rerecord_episode"]:

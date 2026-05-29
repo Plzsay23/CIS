@@ -107,9 +107,6 @@ class OpenCVCamera(Camera):
         self.fps = config.fps
         self.color_mode = config.color_mode
         self.warmup_s = config.warmup_s
-        self.max_frame_age_ms = config.max_frame_age_ms
-        self.read_timeout_ms = config.read_timeout_ms
-        self.reconnect_retry_delay_s = config.reconnect_retry_delay_s
 
         self.videocapture: cv2.VideoCapture | None = None
 
@@ -202,11 +199,12 @@ class OpenCVCamera(Camera):
             DeviceNotConnectedError: If the camera is not connected.
         """
 
-        # Set FOURCC first (if specified) as it can affect available FPS/resolution options
-        if self.config.fourcc is not None:
-            self._validate_fourcc()
         if self.videocapture is None:
             raise DeviceNotConnectedError(f"{self} videocapture is not initialized")
+
+        set_fourcc_after_size_and_fps = platform.system() == "Windows"
+        if self.config.fourcc is not None and not set_fourcc_after_size_and_fps:
+            self._validate_fourcc()
 
         default_width = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_WIDTH)))
         default_height = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
@@ -224,6 +222,11 @@ class OpenCVCamera(Camera):
             self.fps = self.videocapture.get(cv2.CAP_PROP_FPS)
         else:
             self._validate_fps()
+
+        if self.config.fourcc is not None and set_fourcc_after_size_and_fps:
+            # On Windows with DSHOW, changing the resolution can silently override the FOURCC setting.
+            # Set FOURCC last to make sure the requested pixel format is actually enforced.
+            self._validate_fourcc()
 
     def _validate_fps(self) -> None:
         """Validates and sets the camera's frames per second (FPS)."""
@@ -381,7 +384,7 @@ class OpenCVCamera(Camera):
             raise RuntimeError(f"{self} read thread is not running.")
 
         self.new_frame_event.clear()
-        frame = self.async_read(timeout_ms=self.read_timeout_ms)
+        frame = self.async_read(timeout_ms=10000)
 
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
         logger.debug(f"{self} read took: {read_duration_ms:.1f}ms")
@@ -429,12 +432,21 @@ class OpenCVCamera(Camera):
         return processed_image
 
     def _read_loop(self) -> None:
-        stop_event = self.stop_event
-        if stop_event is None:
+        """
+        Internal loop run by the background thread for asynchronous reading.
+
+        On each iteration:
+        1. Reads a color frame
+        2. Stores result in latest_frame and updates timestamp (thread-safe)
+        3. Sets new_frame_event to notify listeners
+
+        Stops on DeviceNotConnectedError, logs other errors and continues.
+        """
+        if self.stop_event is None:
             raise RuntimeError(f"{self}: stop_event is not initialized before starting read loop.")
 
         failure_count = 0
-        while not stop_event.is_set():
+        while not self.stop_event.is_set():
             try:
                 raw_frame = self._read_from_hardware()
                 processed_frame = self._postprocess_image(raw_frame)
@@ -449,13 +461,11 @@ class OpenCVCamera(Camera):
             except DeviceNotConnectedError:
                 break
             except Exception as e:
-                failure_count += 1
-                if failure_count <= 10 or failure_count % 100 == 0:
-                    logger.warning(
-                        f"Error reading frame in background thread for {self}: {e} "
-                        f"(consecutive_failures={failure_count})"
-                    )
-                time.sleep(self.reconnect_retry_delay_s)
+                if failure_count <= 10:
+                    failure_count += 1
+                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                else:
+                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e
 
     def _start_read_thread(self) -> None:
         """Starts or restarts the background read thread if it's not running."""
@@ -468,16 +478,15 @@ class OpenCVCamera(Camera):
         time.sleep(0.1)
 
     def _stop_read_thread(self) -> None:
-        stop_event = self.stop_event
-        thread = self.thread
+        """Signals the background read thread to stop and waits for it to join."""
+        if self.stop_event is not None:
+            self.stop_event.set()
 
-        if stop_event is not None:
-            stop_event.set()
-
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=2.0)
+        if self.thread is not None and self.thread.is_alive():
+            self.thread.join(timeout=2.0)
 
         self.thread = None
+        self.stop_event = None
 
         with self.frame_lock:
             self.latest_frame = None
@@ -527,7 +536,7 @@ class OpenCVCamera(Camera):
         return frame
 
     @check_if_not_connected
-    def read_latest(self, max_age_ms: int | None = None) -> NDArray[Any]:
+    def read_latest(self, max_age_ms: int = 500) -> NDArray[Any]:
         """Return the most recent frame captured immediately (Peeking).
 
         This method is non-blocking and returns whatever is currently in the
@@ -553,15 +562,12 @@ class OpenCVCamera(Camera):
         if frame is None or timestamp is None:
             raise RuntimeError(f"{self} has not captured any frames yet.")
 
-        if max_age_ms is None:
-            max_age_ms = self.max_frame_age_ms
-
         age_ms = (time.perf_counter() - timestamp) * 1e3
-        if max_age_ms > 0 and age_ms > max_age_ms:
+        if age_ms > max_age_ms:
             raise TimeoutError(
                 f"{self} latest frame is too old: {age_ms:.1f} ms (max allowed: {max_age_ms} ms)."
             )
-            
+
         return frame
 
     def disconnect(self) -> None:
