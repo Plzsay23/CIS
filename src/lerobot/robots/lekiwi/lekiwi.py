@@ -358,9 +358,34 @@ class LeKiwi(Robot):
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
 
         # Capture images from cameras
+        if not hasattr(self, "_last_camera_frames"):
+            self._last_camera_frames = {}
+
         for cam_key, cam in self.cameras.items():
             start = time.perf_counter()
-            obs_dict[cam_key] = cam.read_latest(max_age_ms=0)
+
+            try:
+                # OpenCVCamera는 background thread가 latest_frame을 계속 갱신함.
+                # read_latest()의 stale timeout을 피하기 위해 latest_frame을 직접 읽음.
+                if hasattr(cam, "frame_lock") and hasattr(cam, "latest_frame"):
+                    with cam.frame_lock:
+                        frame = None if cam.latest_frame is None else cam.latest_frame.copy()
+
+                    if frame is None:
+                        frame = cam.read_latest()
+                else:
+                    frame = cam.read_latest()
+
+                obs_dict[cam_key] = frame
+                self._last_camera_frames[cam_key] = frame
+
+            except Exception as e:
+                if cam_key in self._last_camera_frames:
+                    obs_dict[cam_key] = self._last_camera_frames[cam_key]
+                    logger.warning(f"{self} camera '{cam_key}' read failed, using cached frame: {e}")
+                else:
+                    raise RuntimeError(f"{self} camera '{cam_key}' has no cached frame yet: {e}") from e
+
             dt_ms = (time.perf_counter() - start) * 1e3
             logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
