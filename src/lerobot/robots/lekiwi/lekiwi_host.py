@@ -74,8 +74,13 @@ def main(cfg: LeKiwiServerConfig):
     try:
         # Business logic
         start = time.perf_counter()
-        duration = 0
-        while duration < host.connection_time_s:
+        while True:
+            if host.connection_time_s > 0:
+                duration = time.perf_counter() - start
+                if duration >= host.connection_time_s:
+                    print("Cycle time reached.")
+                    break
+
             loop_start_time = time.time()
             try:
                 msg = host.zmq_cmd_socket.recv_string(zmq.NOBLOCK)
@@ -84,18 +89,18 @@ def main(cfg: LeKiwiServerConfig):
                 last_cmd_time = time.time()
                 watchdog_active = False
             except zmq.Again:
-                if not watchdog_active:
-                    logging.warning("No command available")
+                pass
             except Exception as e:
                 logging.error("Message fetching failed: %s", e)
 
-            now = time.time()
-            if (now - last_cmd_time > host.watchdog_timeout_ms / 1000) and not watchdog_active:
-                logging.warning(
-                    f"Command not received for more than {host.watchdog_timeout_ms} milliseconds. Stopping the base."
-                )
-                watchdog_active = True
-                robot.stop_base()
+            if host.watchdog_timeout_ms > 0:
+                now = time.time()
+                if (now - last_cmd_time > host.watchdog_timeout_ms / 1000) and not watchdog_active:
+                    logging.warning(
+                        f"Command not received for more than {host.watchdog_timeout_ms} milliseconds. Stopping the base."
+                    )
+                    watchdog_active = True
+                    robot.stop_base()
 
             last_observation = robot.get_observation()
 
@@ -119,8 +124,6 @@ def main(cfg: LeKiwiServerConfig):
             elapsed = time.time() - loop_start_time
 
             time.sleep(max(1 / host.max_loop_freq_hz - elapsed, 0))
-            duration = time.perf_counter() - start
-        print("Cycle time reached.")
 
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Exiting...")
