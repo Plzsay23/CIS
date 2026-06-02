@@ -562,38 +562,9 @@
       color: #cbd5e1;
       min-height: 16px;
     }
-
-    .arm-jog-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .arm-jog-btn {
-      height: 32px;
-      border: 0;
-      border-radius: 8px;
-      background: rgba(55, 65, 81, 0.95);
-      color: white;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    .arm-jog-btn:active {
-      background: rgba(17, 24, 39, 0.95);
-    }
-
     /* DASHBOARD_DRIVE_PATCH_END */
 
-  
-    .arm-btn:disabled,
-    .arm-jog-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-</style>
+  </style>
 </head>
 
 <body>
@@ -759,8 +730,8 @@
 
     <div class="drive-help">
       · 위/아래: 전진/후진<br>
-      · 좌/우: 횡이동, 최대 0.10 m/s<br>
-      · 좌회전/우회전 버튼: 누르는 동안 회전, 30 deg/s<br>
+      · 좌/우: 횡이동, 좌우 반전 보정 적용<br>
+      · 좌회전/우회전 버튼: 누르는 동안 회전<br>
       · 마우스 release / touchend: 즉시 정지
     </div>
 
@@ -771,25 +742,9 @@
 
     <div class="arm-control">
       <div class="arm-title">로봇팔 명령</div>
-      <button class="arm-btn" data-arm-cmd="gripper_close" disabled title="Gripper disabled due to torque lock">그리퍼 열기</button>
-      <button class="arm-btn" data-arm-cmd="gripper_open" disabled title="Gripper disabled due to torque lock">그리퍼 닫기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_open">그리퍼 열기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_close">그리퍼 닫기</button>
       <button class="arm-btn" data-arm-cmd="arm_home">시작 위치 복귀</button>
-
-      <div class="arm-jog-grid">
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_up">1 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_down">1 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_up">2 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_down">2 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_up">3 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_down">3 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_up">4 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_down">4 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_up">5 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_down">5 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_down" disabled title="ID 6 gripper disabled due to torque lock">6 열기</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_up" disabled title="ID 6 gripper disabled due to torque lock">6 닫기</button>
-      </div>
-
     </div>
 
     <div id="drive-status" class="drive-status">drive websocket: connecting</div>
@@ -1623,12 +1578,8 @@ function render() {
 
 // DASHBOARD_DRIVE_JS_START
 (() => {
-  // LeKiwi teleoperate.py 기준: FPS=30, slow speed xy=0.1 m/s, theta=30 deg/s
-  const SEND_HZ = 30;
-  const SEND_INTERVAL_MS = 1000 / SEND_HZ;
-
-  const MAX_XY_SPEED = 0.10;        // m/s
-  const MAX_YAW_SPEED = 0.5236;     // rad/s = 30 deg/s
+  const MAX_SEND_HZ = 20;
+  const SEND_INTERVAL_MS = 1000 / MAX_SEND_HZ;
 
   const joystick = document.getElementById("joystick");
   const knob = document.getElementById("joystick-knob");
@@ -1649,14 +1600,7 @@ function render() {
   let ws = null;
   let dragging = false;
   let lastSendTime = 0;
-  let joystickHoldTimer = null;
   let rotateTimer = null;
-
-  let lastDrive = {
-    x: 0.0,
-    y: 0.0,
-    yaw: 0.0,
-  };
 
   function setStatus(text) {
     if (statusEl) {
@@ -1702,7 +1646,6 @@ function render() {
       yaw: Number(yaw.toFixed(3)),
     };
 
-    lastDrive = payload;
     setValues(payload.x, payload.y, payload.yaw);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1717,28 +1660,8 @@ function render() {
     }).catch(() => {});
   }
 
-  function startJoystickHoldLoop() {
-    if (joystickHoldTimer) {
-      clearInterval(joystickHoldTimer);
-      joystickHoldTimer = null;
-    }
-
-    joystickHoldTimer = setInterval(() => {
-      if (!dragging) return;
-      sendDrive(lastDrive.x, lastDrive.y, lastDrive.yaw, true);
-    }, SEND_INTERVAL_MS);
-  }
-
-  function stopJoystickHoldLoop() {
-    if (joystickHoldTimer) {
-      clearInterval(joystickHoldTimer);
-      joystickHoldTimer = null;
-    }
-  }
-
   function stopDrive() {
     dragging = false;
-    stopJoystickHoldLoop();
 
     if (rotateTimer) {
       clearInterval(rotateTimer);
@@ -1747,8 +1670,6 @@ function render() {
 
     knob.style.left = "50%";
     knob.style.top = "50%";
-
-    lastDrive = { x: 0.0, y: 0.0, yaw: 0.0 };
     sendDrive(0, 0, 0, true);
   }
 
@@ -1775,18 +1696,15 @@ function render() {
     const nx = dx / maxR;
     const ny = dy / maxR;
 
-    const x = -ny * MAX_XY_SPEED;   // 위로 드래그 = 전진
-    const y = -nx * MAX_XY_SPEED;   // 좌우 반전 보정 유지
-    const yaw = 0.0;                // 회전은 별도 버튼
+    const x = -ny * 0.25;   // 위로 드래그 = 전진
+    const y = -nx * 0.25;   // 좌우 반전 보정
+    const yaw = 0.0;        // 회전은 별도 버튼
 
-    lastDrive = { x, y, yaw };
-    sendDrive(x, y, yaw, true);
+    sendDrive(x, y, yaw);
   }
 
   function startRotate(yaw) {
     dragging = false;
-    stopJoystickHoldLoop();
-
     knob.style.left = "50%";
     knob.style.top = "50%";
 
@@ -1795,12 +1713,11 @@ function render() {
       rotateTimer = null;
     }
 
-    lastDrive = { x: 0.0, y: 0.0, yaw };
     sendDrive(0, 0, yaw, true);
 
     rotateTimer = setInterval(() => {
       sendDrive(0, 0, yaw, true);
-    }, SEND_INTERVAL_MS);
+    }, 50);
   }
 
   function stopRotate() {
@@ -1809,7 +1726,6 @@ function render() {
       rotateTimer = null;
     }
 
-    lastDrive = { x: 0.0, y: 0.0, yaw: 0.0 };
     sendDrive(0, 0, 0, true);
   }
 
@@ -1829,15 +1745,8 @@ function render() {
 
   joystick.addEventListener("pointerdown", (e) => {
     dragging = true;
-
-    if (rotateTimer) {
-      clearInterval(rotateTimer);
-      rotateTimer = null;
-    }
-
     joystick.setPointerCapture(e.pointerId);
     handlePointer(e.clientX, e.clientY);
-    startJoystickHoldLoop();
   });
 
   joystick.addEventListener("pointermove", (e) => {
@@ -1851,13 +1760,13 @@ function render() {
 
   bindHoldButton(
     rotateLeftBtn,
-    () => startRotate(MAX_YAW_SPEED),
+    () => startRotate(0.7),
     stopRotate
   );
 
   bindHoldButton(
     rotateRightBtn,
-    () => startRotate(-MAX_YAW_SPEED),
+    () => startRotate(-0.7),
     stopRotate
   );
 
@@ -1901,45 +1810,7 @@ function render() {
       });
   }
 
-  let armJogTimer = null;
-
-  function startArmJog(command) {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-
-    sendArmCommand(command);
-
-    armJogTimer = setInterval(() => {
-      sendArmCommand(command);
-    }, 70);
-  }
-
-  function stopArmJog() {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-  }
-
-  document.querySelectorAll(".arm-jog-btn[data-arm-cmd]").forEach((button) => {
-    button.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      button.setPointerCapture(e.pointerId);
-
-      const command = button.getAttribute("data-arm-cmd");
-      if (command) {
-        startArmJog(command);
-      }
-    });
-
-    button.addEventListener("pointerup", stopArmJog);
-    button.addEventListener("pointercancel", stopArmJog);
-    button.addEventListener("lostpointercapture", stopArmJog);
-  });
-
-  document.querySelectorAll(".arm-btn[data-arm-cmd]").forEach((button) => {
+  document.querySelectorAll("[data-arm-cmd]").forEach((button) => {
     button.addEventListener("click", () => {
       const command = button.getAttribute("data-arm-cmd");
       if (command) {

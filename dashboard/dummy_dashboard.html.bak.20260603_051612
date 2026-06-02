@@ -365,235 +365,7 @@
       min-height: 16px;
     }
 
-  
-    /* DASHBOARD_DRIVE_PATCH_START */
-    .drive-panel {
-      position: fixed;
-      right: 24px;
-      bottom: 24px;
-      width: 292px;
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(17, 24, 39, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      color: white;
-      z-index: 1000;
-      user-select: none;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-    }
-
-    .drive-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      font-size: 15px;
-      font-weight: 800;
-      margin-bottom: 12px;
-    }
-
-    .drive-badge {
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(37, 99, 235, 0.28);
-      color: #bfdbfe;
-      font-size: 11px;
-      font-weight: 800;
-    }
-
-    .joystick {
-      position: relative;
-      width: 184px;
-      height: 184px;
-      margin: 0 auto;
-      border-radius: 50%;
-      background:
-        radial-gradient(circle, rgba(255,255,255,0.18), rgba(255,255,255,0.05)),
-        linear-gradient(135deg, rgba(59,130,246,0.20), rgba(15,23,42,0.10));
-      border: 2px solid rgba(255,255,255,0.22);
-      touch-action: none;
-      cursor: grab;
-    }
-
-    .joystick:active {
-      cursor: grabbing;
-    }
-
-    .joystick::before,
-    .joystick::after {
-      content: "";
-      position: absolute;
-      background: rgba(255,255,255,0.16);
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    .joystick::before {
-      width: 2px;
-      height: 156px;
-    }
-
-    .joystick::after {
-      width: 156px;
-      height: 2px;
-    }
-
-    .joystick-knob {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(96, 165, 250, 0.98);
-      box-shadow: 0 0 20px rgba(96, 165, 250, 0.55);
-      border: 2px solid rgba(255,255,255,0.72);
-      z-index: 2;
-    }
-
-    .rotate-control {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .rotate-btn {
-      height: 40px;
-      border: 0;
-      border-radius: 10px;
-      background: rgba(59, 130, 246, 0.95);
-      color: white;
-      font-weight: 900;
-      cursor: pointer;
-    }
-
-    .rotate-btn:active {
-      background: rgba(29, 78, 216, 0.95);
-    }
-
-    .drive-values {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      font-size: 12px;
-    }
-
-    .drive-value {
-      padding: 7px 6px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.08);
-      text-align: center;
-      line-height: 1.35;
-    }
-
-    .drive-value b {
-      display: block;
-      color: #dbeafe;
-      font-size: 11px;
-    }
-
-    .drive-help {
-      margin-top: 10px;
-      font-size: 12px;
-      opacity: 0.78;
-      line-height: 1.45;
-    }
-
-    .drive-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .estop-btn,
-    .estop-release-btn {
-      height: 40px;
-      border: 0;
-      border-radius: 10px;
-      color: white;
-      font-weight: 900;
-      cursor: pointer;
-    }
-
-    .estop-btn {
-      background: #dc2626;
-    }
-
-    .estop-release-btn {
-      background: #2563eb;
-    }
-
-    .arm-control {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.16);
-      display: grid;
-      gap: 8px;
-    }
-
-    .arm-title {
-      font-size: 13px;
-      font-weight: 900;
-      color: #e5e7eb;
-    }
-
-    .arm-btn {
-      height: 38px;
-      border: 0;
-      border-radius: 10px;
-      background: rgba(75, 85, 99, 0.95);
-      color: white;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .arm-btn:active {
-      background: rgba(31, 41, 55, 0.95);
-    }
-
-    .drive-status {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #cbd5e1;
-      min-height: 16px;
-    }
-
-    .arm-jog-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .arm-jog-btn {
-      height: 32px;
-      border: 0;
-      border-radius: 8px;
-      background: rgba(55, 65, 81, 0.95);
-      color: white;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    .arm-jog-btn:active {
-      background: rgba(17, 24, 39, 0.95);
-    }
-
-    /* DASHBOARD_DRIVE_PATCH_END */
-
-  
-    .arm-btn:disabled,
-    .arm-jog-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-</style>
+  </style>
 </head>
 
 <body>
@@ -734,8 +506,6 @@
   </div>
 
 
-
-  <!-- DASHBOARD_DRIVE_PANEL_START -->
   <div id="drive-panel" class="drive-panel">
     <div class="drive-title">
       <span>로봇 원격 수동 조작</span>
@@ -746,11 +516,6 @@
       <div id="joystick-knob" class="joystick-knob"></div>
     </div>
 
-    <div class="rotate-control">
-      <button id="rotate-left-btn" class="rotate-btn">↺ 좌회전</button>
-      <button id="rotate-right-btn" class="rotate-btn">우회전 ↻</button>
-    </div>
-
     <div class="drive-values">
       <div class="drive-value"><b>x</b><span id="drive-x">0.000</span></div>
       <div class="drive-value"><b>y</b><span id="drive-y">0.000</span></div>
@@ -759,9 +524,9 @@
 
     <div class="drive-help">
       · 위/아래: 전진/후진<br>
-      · 좌/우: 횡이동, 최대 0.10 m/s<br>
-      · 좌회전/우회전 버튼: 누르는 동안 회전, 30 deg/s<br>
-      · 마우스 release / touchend: 즉시 정지
+      · 좌/우: 횡이동<br>
+      · Shift + 좌/우: 회전<br>
+      · 마우스 버튼 release / touchend: 즉시 정지
     </div>
 
     <div class="drive-buttons">
@@ -769,32 +534,8 @@
       <button id="estop-release-btn" class="estop-release-btn">해제</button>
     </div>
 
-    <div class="arm-control">
-      <div class="arm-title">로봇팔 명령</div>
-      <button class="arm-btn" data-arm-cmd="gripper_close" disabled title="Gripper disabled due to torque lock">그리퍼 열기</button>
-      <button class="arm-btn" data-arm-cmd="gripper_open" disabled title="Gripper disabled due to torque lock">그리퍼 닫기</button>
-      <button class="arm-btn" data-arm-cmd="arm_home">시작 위치 복귀</button>
-
-      <div class="arm-jog-grid">
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_up">1 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_down">1 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_up">2 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_down">2 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_up">3 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_down">3 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_up">4 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_down">4 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_up">5 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_down">5 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_down" disabled title="ID 6 gripper disabled due to torque lock">6 열기</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_up" disabled title="ID 6 gripper disabled due to torque lock">6 닫기</button>
-      </div>
-
-    </div>
-
     <div id="drive-status" class="drive-status">drive websocket: connecting</div>
   </div>
-  <!-- DASHBOARD_DRIVE_PANEL_END -->
 
 <script>
 const barn = {
@@ -1620,20 +1361,12 @@ function render() {
 }
 
 
-
-// DASHBOARD_DRIVE_JS_START
 (() => {
-  // LeKiwi teleoperate.py 기준: FPS=30, slow speed xy=0.1 m/s, theta=30 deg/s
-  const SEND_HZ = 30;
-  const SEND_INTERVAL_MS = 1000 / SEND_HZ;
-
-  const MAX_XY_SPEED = 0.10;        // m/s
-  const MAX_YAW_SPEED = 0.5236;     // rad/s = 30 deg/s
+  const MAX_SEND_HZ = 20;
+  const SEND_INTERVAL_MS = 1000 / MAX_SEND_HZ;
 
   const joystick = document.getElementById("joystick");
   const knob = document.getElementById("joystick-knob");
-  const rotateLeftBtn = document.getElementById("rotate-left-btn");
-  const rotateRightBtn = document.getElementById("rotate-right-btn");
   const estopBtn = document.getElementById("estop-btn");
   const estopReleaseBtn = document.getElementById("estop-release-btn");
   const statusEl = document.getElementById("drive-status");
@@ -1649,19 +1382,9 @@ function render() {
   let ws = null;
   let dragging = false;
   let lastSendTime = 0;
-  let joystickHoldTimer = null;
-  let rotateTimer = null;
-
-  let lastDrive = {
-    x: 0.0,
-    y: 0.0,
-    yaw: 0.0,
-  };
 
   function setStatus(text) {
-    if (statusEl) {
-      statusEl.textContent = text;
-    }
+    if (statusEl) statusEl.textContent = text;
   }
 
   function setValues(x, y, yaw) {
@@ -1674,16 +1397,12 @@ function render() {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     ws = new WebSocket(`${proto}://${location.host}/ws/drive`);
 
-    ws.onopen = () => {
-      setStatus("drive websocket: connected");
-    };
-
+    ws.onopen = () => setStatus("drive websocket: connected");
     ws.onclose = () => {
       setStatus("drive websocket: reconnecting");
       ws = null;
       setTimeout(connectDriveWs, 500);
     };
-
     ws.onerror = () => {
       setStatus("drive websocket: error");
       try { ws.close(); } catch (e) {}
@@ -1693,7 +1412,6 @@ function render() {
   function sendDrive(x, y, yaw, force = false) {
     const now = performance.now();
     if (!force && now - lastSendTime < SEND_INTERVAL_MS) return;
-
     lastSendTime = now;
 
     const payload = {
@@ -1702,7 +1420,6 @@ function render() {
       yaw: Number(yaw.toFixed(3)),
     };
 
-    lastDrive = payload;
     setValues(payload.x, payload.y, payload.yaw);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1717,42 +1434,14 @@ function render() {
     }).catch(() => {});
   }
 
-  function startJoystickHoldLoop() {
-    if (joystickHoldTimer) {
-      clearInterval(joystickHoldTimer);
-      joystickHoldTimer = null;
-    }
-
-    joystickHoldTimer = setInterval(() => {
-      if (!dragging) return;
-      sendDrive(lastDrive.x, lastDrive.y, lastDrive.yaw, true);
-    }, SEND_INTERVAL_MS);
-  }
-
-  function stopJoystickHoldLoop() {
-    if (joystickHoldTimer) {
-      clearInterval(joystickHoldTimer);
-      joystickHoldTimer = null;
-    }
-  }
-
   function stopDrive() {
     dragging = false;
-    stopJoystickHoldLoop();
-
-    if (rotateTimer) {
-      clearInterval(rotateTimer);
-      rotateTimer = null;
-    }
-
     knob.style.left = "50%";
     knob.style.top = "50%";
-
-    lastDrive = { x: 0.0, y: 0.0, yaw: 0.0 };
     sendDrive(0, 0, 0, true);
   }
 
-  function handlePointer(clientX, clientY) {
+  function handlePointer(clientX, clientY, shiftKey) {
     const rect = joystick.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
@@ -1775,92 +1464,33 @@ function render() {
     const nx = dx / maxR;
     const ny = dy / maxR;
 
-    const x = -ny * MAX_XY_SPEED;   // 위로 드래그 = 전진
-    const y = -nx * MAX_XY_SPEED;   // 좌우 반전 보정 유지
-    const yaw = 0.0;                // 회전은 별도 버튼
+    let x = -ny * 0.25;
+    let y = nx * 0.25;
+    let yaw = 0.0;
 
-    lastDrive = { x, y, yaw };
-    sendDrive(x, y, yaw, true);
-  }
-
-  function startRotate(yaw) {
-    dragging = false;
-    stopJoystickHoldLoop();
-
-    knob.style.left = "50%";
-    knob.style.top = "50%";
-
-    if (rotateTimer) {
-      clearInterval(rotateTimer);
-      rotateTimer = null;
+    if (shiftKey) {
+      x = 0.0;
+      y = 0.0;
+      yaw = nx * 1.2;
     }
 
-    lastDrive = { x: 0.0, y: 0.0, yaw };
-    sendDrive(0, 0, yaw, true);
-
-    rotateTimer = setInterval(() => {
-      sendDrive(0, 0, yaw, true);
-    }, SEND_INTERVAL_MS);
-  }
-
-  function stopRotate() {
-    if (rotateTimer) {
-      clearInterval(rotateTimer);
-      rotateTimer = null;
-    }
-
-    lastDrive = { x: 0.0, y: 0.0, yaw: 0.0 };
-    sendDrive(0, 0, 0, true);
-  }
-
-  function bindHoldButton(button, onStart, onStop) {
-    if (!button) return;
-
-    button.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      button.setPointerCapture(e.pointerId);
-      onStart();
-    });
-
-    button.addEventListener("pointerup", onStop);
-    button.addEventListener("pointercancel", onStop);
-    button.addEventListener("lostpointercapture", onStop);
+    sendDrive(x, y, yaw);
   }
 
   joystick.addEventListener("pointerdown", (e) => {
     dragging = true;
-
-    if (rotateTimer) {
-      clearInterval(rotateTimer);
-      rotateTimer = null;
-    }
-
     joystick.setPointerCapture(e.pointerId);
-    handlePointer(e.clientX, e.clientY);
-    startJoystickHoldLoop();
+    handlePointer(e.clientX, e.clientY, e.shiftKey);
   });
 
   joystick.addEventListener("pointermove", (e) => {
     if (!dragging) return;
-    handlePointer(e.clientX, e.clientY);
+    handlePointer(e.clientX, e.clientY, e.shiftKey);
   });
 
   joystick.addEventListener("pointerup", stopDrive);
   joystick.addEventListener("pointercancel", stopDrive);
   joystick.addEventListener("lostpointercapture", stopDrive);
-
-  bindHoldButton(
-    rotateLeftBtn,
-    () => startRotate(MAX_YAW_SPEED),
-    stopRotate
-  );
-
-  bindHoldButton(
-    rotateRightBtn,
-    () => startRotate(-MAX_YAW_SPEED),
-    stopRotate
-  );
-
   window.addEventListener("blur", stopDrive);
   window.addEventListener("beforeunload", stopDrive);
 
@@ -1881,76 +1511,8 @@ function render() {
     });
   }
 
-  function sendArmCommand(command) {
-    fetch("/api/arm_command", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.json();
-      })
-      .then(() => {
-        setStatus(`arm command: ${command}`);
-      })
-      .catch(() => {
-        setStatus(`arm command failed: ${command}`);
-      });
-  }
-
-  let armJogTimer = null;
-
-  function startArmJog(command) {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-
-    sendArmCommand(command);
-
-    armJogTimer = setInterval(() => {
-      sendArmCommand(command);
-    }, 70);
-  }
-
-  function stopArmJog() {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-  }
-
-  document.querySelectorAll(".arm-jog-btn[data-arm-cmd]").forEach((button) => {
-    button.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      button.setPointerCapture(e.pointerId);
-
-      const command = button.getAttribute("data-arm-cmd");
-      if (command) {
-        startArmJog(command);
-      }
-    });
-
-    button.addEventListener("pointerup", stopArmJog);
-    button.addEventListener("pointercancel", stopArmJog);
-    button.addEventListener("lostpointercapture", stopArmJog);
-  });
-
-  document.querySelectorAll(".arm-btn[data-arm-cmd]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const command = button.getAttribute("data-arm-cmd");
-      if (command) {
-        sendArmCommand(command);
-      }
-    });
-  });
-
   connectDriveWs();
 })();
-// DASHBOARD_DRIVE_JS_END
 
 
 render();

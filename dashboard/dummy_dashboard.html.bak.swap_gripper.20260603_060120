@@ -587,13 +587,7 @@
 
     /* DASHBOARD_DRIVE_PATCH_END */
 
-  
-    .arm-btn:disabled,
-    .arm-jog-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-</style>
+  </style>
 </head>
 
 <body>
@@ -771,8 +765,8 @@
 
     <div class="arm-control">
       <div class="arm-title">로봇팔 명령</div>
-      <button class="arm-btn" data-arm-cmd="gripper_close" disabled title="Gripper disabled due to torque lock">그리퍼 열기</button>
-      <button class="arm-btn" data-arm-cmd="gripper_open" disabled title="Gripper disabled due to torque lock">그리퍼 닫기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_open">그리퍼 열기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_close">그리퍼 닫기</button>
       <button class="arm-btn" data-arm-cmd="arm_home">시작 위치 복귀</button>
 
       <div class="arm-jog-grid">
@@ -786,8 +780,8 @@
         <button class="arm-jog-btn" data-arm-cmd="motor_4_down">4 DOWN</button>
         <button class="arm-jog-btn" data-arm-cmd="motor_5_up">5 좌</button>
         <button class="arm-jog-btn" data-arm-cmd="motor_5_down">5 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_down" disabled title="ID 6 gripper disabled due to torque lock">6 열기</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_up" disabled title="ID 6 gripper disabled due to torque lock">6 닫기</button>
+        <button class="arm-jog-btn" data-arm-cmd="motor_6_up">6 열기</button>
+        <button class="arm-jog-btn" data-arm-cmd="motor_6_down">6 닫기</button>
       </div>
 
     </div>

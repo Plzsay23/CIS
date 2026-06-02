@@ -27,10 +27,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="/home/lerobot/CIS/nav_maps/generated")
     parser.add_argument("--name", default="lekiwi_map_v2")
     parser.add_argument("--resolution", type=float, default=0.05)
-    parser.add_argument("--min-x", type=float, default=-41.0)
-    parser.add_argument("--max-x", type=float, default=61.0)
+    parser.add_argument("--min-x", type=float, default=-16.0)
+    parser.add_argument("--max-x", type=float, default=36.0)
     parser.add_argument("--min-y", type=float, default=-12.0)
     parser.add_argument("--max-y", type=float, default=12.0)
+    parser.add_argument(
+        "--x-center",
+        type=float,
+        default=10.0,
+        help="Raw arena x center used when compressing the layout.",
+    )
+    parser.add_argument(
+        "--x-scale",
+        type=float,
+        default=0.5,
+        help="Compress obstacle layout around x-center. 0.5 makes width about half.",
+    )
     parser.add_argument(
         "--y-scale",
         type=float,
@@ -47,12 +59,15 @@ class Map:
         self.min_y = args.min_y
         self.max_x = args.max_x
         self.max_y = args.max_y
+        self.x_center = args.x_center
+        self.x_scale = args.x_scale
         self.width = int(math.ceil((self.max_x - self.min_x) / self.res))
         self.height = int(math.ceil((self.max_y - self.min_y) / self.res))
         self.grid = np.full((self.height, self.width), FREE, dtype=np.uint8)
 
     def world_to_px(self, x: float, y: float) -> tuple[int, int]:
-        px = int(round((x - self.min_x) / self.res))
+        scaled_x = self.x_center + (x - self.x_center) * self.x_scale
+        px = int(round((scaled_x - self.min_x) / self.res))
         py = int(round((y - self.min_y) / self.res))
         return px, self.height - 1 - py
 

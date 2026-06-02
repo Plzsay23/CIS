@@ -562,38 +562,9 @@
       color: #cbd5e1;
       min-height: 16px;
     }
-
-    .arm-jog-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .arm-jog-btn {
-      height: 32px;
-      border: 0;
-      border-radius: 8px;
-      background: rgba(55, 65, 81, 0.95);
-      color: white;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    .arm-jog-btn:active {
-      background: rgba(17, 24, 39, 0.95);
-    }
-
     /* DASHBOARD_DRIVE_PATCH_END */
 
-  
-    .arm-btn:disabled,
-    .arm-jog-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-</style>
+  </style>
 </head>
 
 <body>
@@ -771,25 +742,9 @@
 
     <div class="arm-control">
       <div class="arm-title">로봇팔 명령</div>
-      <button class="arm-btn" data-arm-cmd="gripper_close" disabled title="Gripper disabled due to torque lock">그리퍼 열기</button>
-      <button class="arm-btn" data-arm-cmd="gripper_open" disabled title="Gripper disabled due to torque lock">그리퍼 닫기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_open">그리퍼 열기</button>
+      <button class="arm-btn" data-arm-cmd="gripper_close">그리퍼 닫기</button>
       <button class="arm-btn" data-arm-cmd="arm_home">시작 위치 복귀</button>
-
-      <div class="arm-jog-grid">
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_up">1 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_1_down">1 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_up">2 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_2_down">2 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_up">3 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_3_down">3 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_up">4 UP</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_4_down">4 DOWN</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_up">5 좌</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_5_down">5 우</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_down" disabled title="ID 6 gripper disabled due to torque lock">6 열기</button>
-        <button class="arm-jog-btn" data-arm-cmd="motor_6_up" disabled title="ID 6 gripper disabled due to torque lock">6 닫기</button>
-      </div>
-
     </div>
 
     <div id="drive-status" class="drive-status">drive websocket: connecting</div>
@@ -1901,45 +1856,7 @@ function render() {
       });
   }
 
-  let armJogTimer = null;
-
-  function startArmJog(command) {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-
-    sendArmCommand(command);
-
-    armJogTimer = setInterval(() => {
-      sendArmCommand(command);
-    }, 70);
-  }
-
-  function stopArmJog() {
-    if (armJogTimer) {
-      clearInterval(armJogTimer);
-      armJogTimer = null;
-    }
-  }
-
-  document.querySelectorAll(".arm-jog-btn[data-arm-cmd]").forEach((button) => {
-    button.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      button.setPointerCapture(e.pointerId);
-
-      const command = button.getAttribute("data-arm-cmd");
-      if (command) {
-        startArmJog(command);
-      }
-    });
-
-    button.addEventListener("pointerup", stopArmJog);
-    button.addEventListener("pointercancel", stopArmJog);
-    button.addEventListener("lostpointercapture", stopArmJog);
-  });
-
-  document.querySelectorAll(".arm-btn[data-arm-cmd]").forEach((button) => {
+  document.querySelectorAll("[data-arm-cmd]").forEach((button) => {
     button.addEventListener("click", () => {
       const command = button.getAttribute("data-arm-cmd");
       if (command) {

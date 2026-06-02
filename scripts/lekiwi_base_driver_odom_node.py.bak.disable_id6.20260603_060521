@@ -111,13 +111,6 @@ def load_motor_calibration_json(path_str: str):
     return calibration
 
 
-
-def active_arm_motor_names(disable_gripper: bool):
-    if disable_gripper:
-        return [name for name in ARM_MOTORS.keys() if name != "arm_gripper"]
-    return list(ARM_MOTORS.keys())
-
-
 class LeKiwiBaseDriverOdom(Node):
     def __init__(self, args):
         super().__init__("lekiwi_base_driver_odom")
@@ -148,7 +141,6 @@ class LeKiwiBaseDriverOdom(Node):
         self.arm_home_return_fps = args.arm_home_return_fps
         self.gripper_open_tick = args.gripper_open_tick
         self.gripper_close_tick = args.gripper_close_tick
-        self.disable_gripper = args.disable_gripper
         self.gripper_open_norm = args.gripper_open_norm
         self.gripper_close_norm = args.gripper_close_norm
         self.gripper_jog_norm_per_s = args.gripper_jog_norm_per_s
@@ -172,7 +164,6 @@ class LeKiwiBaseDriverOdom(Node):
         self.cmd_vy = 0.0
         self.cmd_wz = 0.0
         self.estop = False
-        self.active_arm_names = active_arm_motor_names(self.disable_gripper)
 
         self.arm_motion_busy = False
         self.arm_jog_direction: Dict[str, int] = {}
@@ -294,7 +285,7 @@ class LeKiwiBaseDriverOdom(Node):
         except Exception as e:
             self.get_logger().warn(f"configure_motors skipped/failed: {e}")
 
-        for name in self.active_arm_names:
+        for name in ARM_MOTORS:
             self.bus.write("Operating_Mode", name, OperatingMode.POSITION.value)
 
             try:
@@ -495,13 +486,13 @@ class LeKiwiBaseDriverOdom(Node):
         try:
             raw = self.bus.sync_read(
                 "Present_Position",
-                self.active_arm_names,
+                list(ARM_MOTORS.keys()),
                 normalize=False,
             )
         except TypeError:
             raw = self.bus.sync_read("Present_Position", list(ARM_MOTORS.keys()))
 
-        return {name: int(raw[name]) for name in self.active_arm_names}
+        return {name: int(raw[name]) for name in ARM_MOTORS}
 
     def read_arm_position_raw(self, name: str) -> int:
         try:
@@ -513,7 +504,7 @@ class LeKiwiBaseDriverOdom(Node):
         clamped = {
             name: self.clamp_arm_tick(name, value)
             for name, value in targets.items()
-            if name in self.active_arm_names
+            if name in ARM_MOTORS
         }
 
         if not clamped:
@@ -537,7 +528,7 @@ class LeKiwiBaseDriverOdom(Node):
             data = DEFAULT_HOME_RAW_TICKS
 
         home = {}
-        for name in self.active_arm_names:
+        for name in ARM_MOTORS:
             if name not in data:
                 raise ValueError(f"Missing home tick for {name} in {path}")
             home[name] = self.clamp_arm_tick(name, int(data[name]))
@@ -841,16 +832,10 @@ class LeKiwiBaseDriverOdom(Node):
 
         try:
             if command == "gripper_open":
-                if self.disable_gripper:
-                    self.get_logger().warn("Ignoring gripper command because --disable-gripper is set.")
-                    return
                 self.arm_motion_busy = True
                 self.move_gripper_open()
 
             elif command == "gripper_close":
-                if self.disable_gripper:
-                    self.get_logger().warn("Ignoring gripper command because --disable-gripper is set.")
-                    return
                 self.arm_motion_busy = True
                 self.move_gripper_close()
 
@@ -866,12 +851,6 @@ class LeKiwiBaseDriverOdom(Node):
 
                 motor_id = int(parts[1])
                 op = parts[2]
-
-                if self.disable_gripper and motor_id == 6:
-                    self.get_logger().warn(
-                        f"Ignoring motor 6 command because gripper is disabled: {command}"
-                    )
-                    return
 
                 if op == "up":
                     self.start_arm_jog(motor_id, 1)
