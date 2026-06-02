@@ -69,8 +69,14 @@ class ScanFrontFilter(Node):
         if self.fixed_bins < 2:
             raise ValueError("fixed_bins must be >= 2")
 
-        qos = QoSProfile(
+        sub_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.VOLATILE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=5,
+        )
+        pub_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.VOLATILE,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=5,
@@ -80,12 +86,12 @@ class ScanFrontFilter(Node):
             LaserScan,
             self.input_topic,
             self.cb_scan,
-            qos,
+            sub_qos,
         )
         self.pub = self.create_publisher(
             LaserScan,
             self.output_topic,
-            qos,
+            pub_qos,
         )
 
         self.get_logger().info(

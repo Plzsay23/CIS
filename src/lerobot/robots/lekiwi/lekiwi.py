@@ -408,6 +408,11 @@ class LeKiwi(Robot):
 
         arm_goal_pos = {k: v for k, v in action.items() if k.endswith(".pos")}
         base_goal_vel = {k: v for k, v in action.items() if k.endswith(".vel")}
+        
+        # Mirror gripper command: leader open/close direction is opposite to follower gripper.
+        if "arm_gripper.pos" in arm_goal_pos:
+            gripper = 100.0 - float(arm_goal_pos["arm_gripper.pos"])
+            arm_goal_pos["arm_gripper.pos"] = max(0.0, min(100.0, gripper))
 
         base_wheel_goal_vel = self._body_to_wheel_raw(
             base_goal_vel["x.vel"], base_goal_vel["y.vel"], base_goal_vel["theta.vel"]
