@@ -28,6 +28,9 @@ RVIZ_CONFIG="${RVIZ_CONFIG:-/home/lerobot/.rviz2/default.rviz}"
 ENABLE_CAMERA_STREAM="${ENABLE_CAMERA_STREAM:-true}"
 CAMERA_ROS_TOPIC="${CAMERA_ROS_TOPIC:-/camera/top/image_raw}"
 CAMERA_ROS_FRAME_ID="${CAMERA_ROS_FRAME_ID:-top_camera_optical_frame}"
+CAMERA_DEPTH_ROS_TOPIC="${CAMERA_DEPTH_ROS_TOPIC:-/camera/top/depth/image_raw}"
+CAMERA_DEPTH_ROS_FRAME_ID="${CAMERA_DEPTH_ROS_FRAME_ID:-top_camera_optical_frame}"
+CAMERA_DEPTH_KEY="${CAMERA_DEPTH_KEY:-top_depth}"
 
 find_realsense_color_camera() {
     local dev product fmt
@@ -131,7 +134,7 @@ if [[ "${ENABLE_CAMERA_STREAM}" == "true" ]]; then
     start_process "camera_stream" \
         "source /opt/ros/humble/setup.bash;
          source '${CIS_DIR}/.venv/bin/activate';
-         python3 '${CIS_DIR}/tools/lekiwi_camera_obs_stream.py' --device '${TOP_CAMERA_DEVICE}' --camera-key top --address 'tcp://*:5556' --rotate-180 --ros-topic '${CAMERA_ROS_TOPIC}' --ros-frame-id '${CAMERA_ROS_FRAME_ID}'"
+         python3 '${CIS_DIR}/tools/lekiwi_camera_obs_stream.py' --device '${TOP_CAMERA_DEVICE}' --camera-key top --address 'tcp://*:5556' --rotate-180 --use-realsense --ros-topic '${CAMERA_ROS_TOPIC}' --ros-frame-id '${CAMERA_ROS_FRAME_ID}' --depth-key '${CAMERA_DEPTH_KEY}' --depth-ros-topic '${CAMERA_DEPTH_ROS_TOPIC}' --depth-ros-frame-id '${CAMERA_DEPTH_ROS_FRAME_ID}'"
 else
     echo "[SKIP] camera stream disabled (ENABLE_CAMERA_STREAM=${ENABLE_CAMERA_STREAM})"
 fi
@@ -140,7 +143,7 @@ start_process "egg_detector" \
     "source /opt/ros/humble/setup.bash;
      source '${CIS_DIR}/.venv/bin/activate';
      source '${ROBOT_WS}/install/setup.bash';
-     python3 '${CIS_DIR}/tools/yolo_sports_ball_egg_detection.py' --address '${ZMQ_ADDRESS}' --model '${YOLO_MODEL}' --cam '${YOLO_CAMERA}' --camera-height '${CAMERA_HEIGHT}' --camera-pitch-deg '${CAMERA_PITCH_DEG}' --camera-forward-offset '${CAMERA_FORWARD_OFFSET}' --horizontal-fov-deg '${CAMERA_HORIZONTAL_FOV_DEG}' --vertical-fov-deg '${CAMERA_VERTICAL_FOV_DEG}' --conf '${YOLO_CONF}' --device '${YOLO_DEVICE}' $([[ '${STOP_ON_EGG_DETECTION}' == 'true' ]] && echo '--stop-on-detection') $([[ '${YOLO_VIEW}' == 'true' ]] && echo '--view')"
+     python3 '${CIS_DIR}/tools/yolo_sports_ball_egg_detection.py' --address '${ZMQ_ADDRESS}' --model '${YOLO_MODEL}' --cam '${YOLO_CAMERA}' --depth-key '${CAMERA_DEPTH_KEY}' --camera-height '${CAMERA_HEIGHT}' --camera-pitch-deg '${CAMERA_PITCH_DEG}' --camera-forward-offset '${CAMERA_FORWARD_OFFSET}' --horizontal-fov-deg '${CAMERA_HORIZONTAL_FOV_DEG}' --vertical-fov-deg '${CAMERA_VERTICAL_FOV_DEG}' --conf '${YOLO_CONF}' --device '${YOLO_DEVICE}' $([[ '${STOP_ON_EGG_DETECTION}' == 'true' ]] && echo '--stop-on-detection') $([[ '${YOLO_VIEW}' == 'true' ]] && echo '--view')"
 
 if [[ "${ENABLE_RVIZ}" == "true" ]]; then
     start_process "rviz" \
@@ -167,6 +170,7 @@ echo "For RViz, add MarkerArray topic: /egg_markers"
 echo "For manual exploration, publish to: /dashboard/cmd_vel"
 echo "Top camera device: ${TOP_CAMERA_DEVICE}"
 echo "Top camera ROS topic: ${CAMERA_ROS_TOPIC}"
+echo "Top camera depth ROS topic: ${CAMERA_DEPTH_ROS_TOPIC}"
 echo "YOLO view window: ${YOLO_VIEW}"
 echo "Stop on egg detection: ${STOP_ON_EGG_DETECTION}"
 echo "Automatic egg approach: ${ENABLE_EGG_APPROACH}"

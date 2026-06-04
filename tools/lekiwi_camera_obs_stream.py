@@ -8,6 +8,7 @@ import subprocess
 import time
 
 import cv2
+import numpy as np
 import zmq
 
 
@@ -22,8 +23,12 @@ def parse_args():
     parser.add_argument("--jpeg-quality", type=int, default=90)
     parser.add_argument("--rotate-180", action="store_true")
     parser.add_argument("--reopen-delay", type=float, default=1.0)
+    parser.add_argument("--use-realsense", action="store_true")
     parser.add_argument("--ros-topic", default="")
     parser.add_argument("--ros-frame-id", default="top_camera_optical_frame")
+    parser.add_argument("--depth-key", default="top_depth")
+    parser.add_argument("--depth-ros-topic", default="")
+    parser.add_argument("--depth-ros-frame-id", default="top_camera_optical_frame")
     return parser.parse_args()
 
 
@@ -95,12 +100,66 @@ def open_capture(requested_device, width, height, fps):
     raise RuntimeError(f"Failed to open readable camera stream from: {requested_device} -> {device}")
 
 
+class RealSenseCapture:
+    def __init__(self, width, height, fps):
+        import pyrealsense2 as rs
+
+        self.rs = rs
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        self.config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, int(fps))
+        self.config.enable_stream(rs.stream.depth, width, height, rs.format.z16, int(fps))
+        self.profile = self.pipeline.start(self.config)
+        self.align = rs.align(rs.stream.color)
+        self.depth_scale = (
+            self.profile.get_device()
+            .first_depth_sensor()
+            .get_depth_scale()
+        )
+
+    def read(self):
+        frames = self.pipeline.wait_for_frames(5000)
+        aligned = self.align.process(frames)
+        color_frame = aligned.get_color_frame()
+        depth_frame = aligned.get_depth_frame()
+        if not color_frame or not depth_frame:
+            return False, None, None
+        color = np.asanyarray(color_frame.get_data())
+        depth_m = np.asanyarray(depth_frame.get_data()).astype(np.float32) * float(self.depth_scale)
+        return True, color, depth_m
+
+    def release(self):
+        self.pipeline.stop()
+
+
+def open_realsense_capture(width, height, fps):
+    cap = RealSenseCapture(width, height, fps)
+    for _ in range(15):
+        ok, frame, depth_m = cap.read()
+        if ok and frame is not None and depth_m is not None:
+            print(f"[INFO] Opened RealSense color+depth {width}x{height}@{fps:g}", flush=True)
+            return cap
+        time.sleep(0.05)
+    cap.release()
+    raise RuntimeError("Failed to open readable RealSense color+depth stream")
+
+
+def encode_depth_png(depth_m):
+    depth_mm = np.nan_to_num(depth_m, nan=0.0, posinf=0.0, neginf=0.0)
+    depth_mm = np.clip(depth_mm * 1000.0, 0.0, 65535.0).astype(np.uint16)
+    encoded_ok, buffer = cv2.imencode(".png", depth_mm)
+    if not encoded_ok:
+        return None
+    return base64.b64encode(buffer).decode("ascii")
+
+
 def main():
     args = parse_args()
     cap = None
     active_device = None
     ros_node = None
     ros_pub = None
+    depth_ros_pub = None
 
     context = zmq.Context()
     socket = context.socket(zmq.PUSH)
@@ -119,6 +178,11 @@ def main():
         ros_node.get_logger().info(
             f"Camera ROS image topic: {args.ros_topic}, frame={args.ros_frame_id}"
         )
+        if args.depth_ros_topic:
+            depth_ros_pub = ros_node.create_publisher(Image, args.depth_ros_topic, 10)
+            ros_node.get_logger().info(
+                f"Camera ROS depth topic: {args.depth_ros_topic}, frame={args.depth_ros_frame_id}"
+            )
 
     period = 1.0 / args.fps if args.fps > 0 else 0.0
     failed_reads = 0
@@ -127,7 +191,11 @@ def main():
             started = time.monotonic()
             if cap is None:
                 try:
-                    cap, active_device = open_capture(args.device, args.width, args.height, args.fps)
+                    if args.use_realsense:
+                        cap = open_realsense_capture(args.width, args.height, args.fps)
+                        active_device = "realsense"
+                    else:
+                        cap, active_device = open_capture(args.device, args.width, args.height, args.fps)
                     print(
                         f"[INFO] Camera observation stream: {active_device} -> {args.address}, "
                         f"key={args.camera_key}, rotate_180={args.rotate_180}",
@@ -139,7 +207,11 @@ def main():
                     time.sleep(args.reopen_delay)
                     continue
 
-            ok, frame = cap.read()
+            if args.use_realsense:
+                ok, frame, depth_m = cap.read()
+            else:
+                ok, frame = cap.read()
+                depth_m = None
             if not ok:
                 failed_reads += 1
                 print("[WARN] Camera frame read failed", flush=True)
@@ -155,6 +227,8 @@ def main():
 
             if args.rotate_180:
                 frame = cv2.rotate(frame, cv2.ROTATE_180)
+                if depth_m is not None:
+                    depth_m = cv2.rotate(depth_m, cv2.ROTATE_180)
 
             encoded_ok, buffer = cv2.imencode(
                 ".jpg",
@@ -166,6 +240,11 @@ def main():
                     args.camera_key: base64.b64encode(buffer).decode("ascii"),
                     "timestamp": time.time(),
                 }
+                if depth_m is not None:
+                    depth_value = encode_depth_png(depth_m)
+                    if depth_value is not None:
+                        message[args.depth_key] = depth_value
+                        message[f"{args.depth_key}_unit"] = "mm_png_uint16"
                 socket.send_string(json.dumps(message))
 
             if ros_pub is not None:
@@ -179,6 +258,19 @@ def main():
                 msg.step = int(frame.strides[0])
                 msg.data = frame.tobytes()
                 ros_pub.publish(msg)
+
+                if depth_ros_pub is not None and depth_m is not None:
+                    depth_msg = Image()
+                    depth_msg.header.stamp = msg.header.stamp
+                    depth_msg.header.frame_id = args.depth_ros_frame_id
+                    depth_msg.height = int(depth_m.shape[0])
+                    depth_msg.width = int(depth_m.shape[1])
+                    depth_msg.encoding = "32FC1"
+                    depth_msg.is_bigendian = 0
+                    depth_msg.step = int(depth_m.strides[0])
+                    depth_msg.data = depth_m.astype(np.float32).tobytes()
+                    depth_ros_pub.publish(depth_msg)
+
                 rclpy.spin_once(ros_node, timeout_sec=0.0)
 
             remaining = period - (time.monotonic() - started)

@@ -113,6 +113,7 @@ check_topic /egg_detection
 check_topic /egg_markers
 check_topic /egg_locations
 check_topic /camera/top/image_raw
+check_topic /camera/top/depth/image_raw
 check_topic /auto/cmd_vel
 check_topic /safe_cmd_vel
 

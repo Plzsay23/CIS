@@ -26,6 +26,15 @@ def decode_base64_jpeg(value: str):
     return cv2.imdecode(arr, cv2.IMREAD_COLOR)
 
 
+def decode_base64_depth_png(value: str):
+    raw = base64.b64decode(value)
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    depth_mm = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+    if depth_mm is None:
+        return None
+    return depth_mm.astype(np.float32) / 1000.0
+
+
 class SportsBallEggDetector(Node):
     def __init__(self, args) -> None:
         super().__init__("sports_ball_egg_detector")
@@ -45,7 +54,8 @@ class SportsBallEggDetector(Node):
         self.get_logger().info(
             f"YOLO sports ball -> egg detection: {args.address}/{args.cam} -> {args.output_topic}, "
             f"frame={args.frame_id}, camera_height={args.camera_height:.2f}m, "
-            f"camera_pitch={args.camera_pitch_deg:.1f}deg, vertical_fov={args.vertical_fov_deg:.1f}deg"
+            f"camera_pitch={args.camera_pitch_deg:.1f}deg, vertical_fov={args.vertical_fov_deg:.1f}deg, "
+            f"depth_key={args.depth_key}"
         )
 
     def estimate_ground_position(
@@ -54,6 +64,8 @@ class SportsBallEggDetector(Node):
         image_height: int,
         center_x: float,
         bottom_y: float,
+        depth_m=None,
+        box_xyxy=None,
     ):
         normalized_x = (center_x - image_width * 0.5) / (image_width * 0.5)
         normalized_y = (bottom_y - image_height * 0.5) / (image_height * 0.5)
@@ -64,16 +76,42 @@ class SportsBallEggDetector(Node):
         vertical_offset = math.atan(normalized_y * math.tan(vertical_half_fov))
         ground_angle = math.radians(self.args.camera_pitch_deg) + vertical_offset
 
-        if ground_angle <= math.radians(1.0) or ground_angle >= math.radians(89.0):
-            return None
+        depth_distance = None
+        if depth_m is not None and box_xyxy is not None:
+            x1, y1, x2, y2 = [int(round(v)) for v in box_xyxy]
+            box_width = max(1, x2 - x1)
+            box_height = max(1, y2 - y1)
+            roi_x1 = max(0, x1 + int(box_width * 0.25))
+            roi_x2 = min(depth_m.shape[1], x2 - int(box_width * 0.25))
+            roi_y1 = max(0, y1 + int(box_height * 0.25))
+            roi_y2 = min(depth_m.shape[0], y2)
+            if roi_x2 > roi_x1 and roi_y2 > roi_y1:
+                roi = depth_m[roi_y1:roi_y2, roi_x1:roi_x2]
+                valid = roi[(roi > self.args.min_depth) & (roi < self.args.max_depth)]
+                if valid.size >= self.args.min_depth_pixels:
+                    z = float(np.median(valid))
+                    ray_x = math.tan(bearing)
+                    ray_y = math.tan(vertical_offset)
+                    camera_forward = z
+                    camera_down = z * ray_y
+                    pitch = math.radians(self.args.camera_pitch_deg)
+                    depth_distance = camera_forward * math.cos(pitch) + camera_down * math.sin(pitch)
 
-        ground_distance = self.args.camera_height / math.tan(ground_angle)
+        if ground_angle <= math.radians(1.0) or ground_angle >= math.radians(89.0):
+            if depth_distance is None:
+                return None
+
+        ground_distance = (
+            depth_distance
+            if depth_distance is not None and depth_distance > 0.0
+            else self.args.camera_height / math.tan(ground_angle)
+        )
         if not self.args.min_distance <= ground_distance <= self.args.max_distance:
             return None
 
         x = self.args.camera_forward_offset + ground_distance * math.cos(bearing)
         y = -ground_distance * math.sin(bearing)
-        return x, y, bearing, ground_distance
+        return x, y, bearing, ground_distance, depth_distance is not None
 
     def publish_detection(
         self,
@@ -82,6 +120,8 @@ class SportsBallEggDetector(Node):
         center_x: float,
         bottom_y: float,
         confidence: float,
+        depth_m=None,
+        box_xyxy=None,
     ) -> None:
         now = time.monotonic()
         if self.published_once and not self.args.repeat:
@@ -89,12 +129,19 @@ class SportsBallEggDetector(Node):
         if now - self.last_publish_time < self.args.publish_cooldown:
             return
 
-        estimate = self.estimate_ground_position(image_width, image_height, center_x, bottom_y)
+        estimate = self.estimate_ground_position(
+            image_width,
+            image_height,
+            center_x,
+            bottom_y,
+            depth_m=depth_m,
+            box_xyxy=box_xyxy,
+        )
         if estimate is None:
             self.get_logger().warn("Sports ball detected, but its ground distance could not be estimated.")
             return
 
-        x, y, bearing, ground_distance = estimate
+        x, y, bearing, ground_distance, used_depth = estimate
         self.confirmed_positions.append((x, y))
         self.confirmed_positions = self.confirmed_positions[-self.args.min_confirmations :]
         if len(self.confirmed_positions) < self.args.min_confirmations:
@@ -119,7 +166,8 @@ class SportsBallEggDetector(Node):
 
         self.get_logger().info(
             f"sports ball confidence={confidence:.2f}, bearing={math.degrees(bearing):.1f}deg "
-            f"ground_distance={ground_distance:.2f}m -> egg ({msg.point.x:.2f}, {msg.point.y:.2f}) "
+            f"ground_distance={ground_distance:.2f}m source={'depth' if used_depth else 'camera_geometry'} "
+            f"-> egg ({msg.point.x:.2f}, {msg.point.y:.2f}) "
             f"in {msg.header.frame_id}, "
             f"emergency_stop={self.args.stop_on_detection}"
         )
@@ -136,6 +184,9 @@ class SportsBallEggDetector(Node):
             image = decode_base64_jpeg(obs[self.args.cam])
             if image is None:
                 continue
+            depth_m = None
+            if self.args.depth_key in obs:
+                depth_m = decode_base64_depth_png(obs[self.args.depth_key])
 
             result = self.model.predict(
                 source=image,
@@ -154,10 +205,18 @@ class SportsBallEggDetector(Node):
                     center_x = (float(xyxy[0]) + float(xyxy[2])) * 0.5
                     bottom_y = float(xyxy[3])
                     if best is None or confidence > best[0]:
-                        best = (confidence, center_x, bottom_y)
+                        best = (confidence, center_x, bottom_y, xyxy)
 
             if best is not None:
-                self.publish_detection(image.shape[1], image.shape[0], best[1], best[2], best[0])
+                self.publish_detection(
+                    image.shape[1],
+                    image.shape[0],
+                    best[1],
+                    best[2],
+                    best[0],
+                    depth_m=depth_m,
+                    box_xyxy=best[3],
+                )
             else:
                 self.confirmed_positions.clear()
 
@@ -181,6 +240,7 @@ def parse_args():
     parser.add_argument("--address", default="tcp://127.0.0.1:5556")
     parser.add_argument("--model", default="/home/lerobot/CIS/yolov10n.pt")
     parser.add_argument("--cam", default="top", choices=["top", "wrist"])
+    parser.add_argument("--depth-key", default="top_depth")
     parser.add_argument("--output-topic", default="/egg_detection")
     parser.add_argument("--estop-topic", default="/emergency_stop")
     parser.add_argument("--stop-on-detection", action="store_true")
@@ -192,6 +252,9 @@ def parse_args():
     parser.add_argument("--vertical-fov-deg", type=float, default=42.5)
     parser.add_argument("--min-distance", type=float, default=0.15)
     parser.add_argument("--max-distance", type=float, default=4.0)
+    parser.add_argument("--min-depth", type=float, default=0.05)
+    parser.add_argument("--max-depth", type=float, default=4.0)
+    parser.add_argument("--min-depth-pixels", type=int, default=20)
     parser.add_argument("--min-confirmations", type=int, default=3)
     parser.add_argument("--publish-cooldown", type=float, default=2.0)
     parser.add_argument("--repeat", action="store_true", help="Publish repeated detections for multi-egg testing.")
