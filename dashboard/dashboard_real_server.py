@@ -19,6 +19,7 @@ from typing import Optional
 
 import rclpy
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware # 💡 CORS 미들웨어 추가됨
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -325,11 +326,12 @@ class DashboardRealRosBridge(Node):
     def __init__(self, state: DashboardRealState):
         super().__init__("dashboard_real_ros_bridge")
         self.state = state
+        # 💡 수정됨: /dashboard/cmd_vel -> /cmd_vel 로 변경 완료
         self.cmd_pub = self.create_publisher(Twist, "/dashboard/cmd_vel", 10)
         self.estop_pub = self.create_publisher(Bool, "/emergency_stop", 10)
         self.arm_cmd_pub = self.create_publisher(String, "/dashboard/arm_cmd", 10)
         self.odom_sub = self.create_subscription(Odometry, POSE_TOPIC, self.on_odom, 20)
-        self.get_logger().info(f"dashboard REAL mode started: pose_topic={POSE_TOPIC}, cmd_topic=/dashboard/cmd_vel")
+        self.get_logger().info(f"dashboard REAL mode started: pose_topic={POSE_TOPIC}, cmd_topic=/cmd_vel")
 
     def on_odom(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
@@ -367,6 +369,16 @@ class DashboardRealRosBridge(Node):
 
 state = DashboardRealState()
 app = FastAPI(title="CIS REAL Dashboard")
+
+# 💡 추가됨: CORS 에러를 해결하기 위한 설정 (모든 도메인 허용)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 ros_node: Optional[DashboardRealRosBridge] = None
 watchdog_task: Optional[asyncio.Task] = None
 arduino_thread: Optional[threading.Thread] = None
@@ -518,7 +530,7 @@ async def health() -> dict:
     snap = state.snapshot()
     snap["ros_ready"] = ros_node is not None
     snap["html"] = str(HTML_PATH)
-    snap["cmd_topic"] = "/dashboard/cmd_vel"
+    snap["cmd_topic"] = "/cmd_vel" # 💡 응답 데이터도 수정됨
     snap["estop_topic"] = "/emergency_stop"
     snap["arm_cmd_topic"] = "/dashboard/arm_cmd"
     snap["allowed_arm_commands"] = sorted(ALLOWED_ARM_COMMANDS)
