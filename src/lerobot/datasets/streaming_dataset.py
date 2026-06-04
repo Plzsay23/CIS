@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+# py310-compat: generated imports
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+
 
 # Copyright 2025 The HuggingFace Inc. team. All rights reserved.
 #
@@ -55,7 +60,7 @@ class LookAheadError(Exception):
     pass
 
 
-class Backtrackable[T]:
+class Backtrackable(Generic[T]):
     """
     Wrap any iterator/iterable so you can step back up to `history` items
     and look ahead up to `lookahead` items.

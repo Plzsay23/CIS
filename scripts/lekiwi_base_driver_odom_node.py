@@ -62,13 +62,12 @@ ARM_ID_TO_NAME = {
 INVERT_ARM_JOG_MOTOR_IDS = {1, 3, 4}
 
 DEFAULT_HOME_RAW_TICKS = {
-    "arm_shoulder_pan": 2056,
-    "arm_shoulder_lift": 871,
-    "arm_elbow_flex": 3035,
-    "arm_wrist_flex": 2925,
-    "arm_wrist_roll": 1030,
-    # Gripper is intentionally not used by default during home return.
-    "arm_gripper": 2046,
+    "arm_shoulder_pan": 1973,
+    "arm_shoulder_lift": 875,
+    "arm_elbow_flex": 3027,
+    "arm_wrist_flex": 2696,
+    "arm_wrist_roll": 1992,
+    "arm_gripper": 1992
 }
 
 

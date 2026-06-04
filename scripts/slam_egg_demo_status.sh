@@ -112,6 +112,7 @@ check_topic /map
 check_topic /egg_detection
 check_topic /egg_markers
 check_topic /egg_locations
+check_topic /camera/top/image_raw
 check_topic /auto/cmd_vel
 check_topic /safe_cmd_vel
 
@@ -175,7 +176,9 @@ if [[ "${FAIL}" -eq 0 ]]; then
 else
     for log in "${LOG_DIR}"/*.log; do
         [[ -e "${log}" ]] || continue
-        matches="$(grep -Eai 'error|exception|traceback|failed|fatal' "${log}" 2>/dev/null | tail -n 3 || true)"
+        matches="$(grep -Eai 'error|exception|traceback|failed|fatal' "${log}" 2>/dev/null \
+            | grep -Eavi 'Fail to get baseplate device information|failed to send response|extrapolation into the future' \
+            | tail -n 3 || true)"
         if [[ -n "${matches}" ]]; then
             echo "--- $(basename "${log}")"
             echo "${matches}"

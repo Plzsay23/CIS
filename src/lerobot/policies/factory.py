@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# py310-compat: generated imports
+from __future__ import annotations
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
+
 
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 #
@@ -14,11 +21,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
 
 import importlib
 import logging
-from typing import TYPE_CHECKING, Any, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import torch
 

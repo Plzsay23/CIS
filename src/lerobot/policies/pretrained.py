@@ -1,3 +1,9 @@
+# py310-compat: generated imports
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
+
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,10 +27,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypedDict, TypeVar
 
-try:
-    from typing import Unpack
-except ImportError:
-    from typing_extensions import Unpack
 
 import packaging
 import safetensors

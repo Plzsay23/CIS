@@ -15,7 +15,7 @@ YOLO_CONF="${YOLO_CONF:-0.25}"
 YOLO_VIEW="${YOLO_VIEW:-false}"
 STOP_ON_EGG_DETECTION="${STOP_ON_EGG_DETECTION:-false}"
 CAMERA_HEIGHT="${CAMERA_HEIGHT:-0.55}"
-CAMERA_PITCH_DEG="${CAMERA_PITCH_DEG:-50.0}"
+CAMERA_PITCH_DEG="${CAMERA_PITCH_DEG:-40.0}"
 CAMERA_FORWARD_OFFSET="${CAMERA_FORWARD_OFFSET:-0.0}"
 CAMERA_HORIZONTAL_FOV_DEG="${CAMERA_HORIZONTAL_FOV_DEG:-70.0}"
 CAMERA_VERTICAL_FOV_DEG="${CAMERA_VERTICAL_FOV_DEG:-42.5}"
@@ -26,6 +26,8 @@ EGG_STAND_OFF_DISTANCE="${EGG_STAND_OFF_DISTANCE:-0.2}"
 ENABLE_RVIZ="${ENABLE_RVIZ:-true}"
 RVIZ_CONFIG="${RVIZ_CONFIG:-/home/lerobot/.rviz2/default.rviz}"
 ENABLE_CAMERA_STREAM="${ENABLE_CAMERA_STREAM:-true}"
+CAMERA_ROS_TOPIC="${CAMERA_ROS_TOPIC:-/camera/top/image_raw}"
+CAMERA_ROS_FRAME_ID="${CAMERA_ROS_FRAME_ID:-top_camera_optical_frame}"
 
 find_realsense_color_camera() {
     local dev product fmt
@@ -127,8 +129,9 @@ start_process "slam_nav" \
 
 if [[ "${ENABLE_CAMERA_STREAM}" == "true" ]]; then
     start_process "camera_stream" \
-        "source '${CIS_DIR}/.venv/bin/activate';
-         python3 '${CIS_DIR}/tools/lekiwi_camera_obs_stream.py' --device '${TOP_CAMERA_DEVICE}' --camera-key top --address 'tcp://*:5556' --rotate-180"
+        "source /opt/ros/humble/setup.bash;
+         source '${CIS_DIR}/.venv/bin/activate';
+         python3 '${CIS_DIR}/tools/lekiwi_camera_obs_stream.py' --device '${TOP_CAMERA_DEVICE}' --camera-key top --address 'tcp://*:5556' --rotate-180 --ros-topic '${CAMERA_ROS_TOPIC}' --ros-frame-id '${CAMERA_ROS_FRAME_ID}'"
 else
     echo "[SKIP] camera stream disabled (ENABLE_CAMERA_STREAM=${ENABLE_CAMERA_STREAM})"
 fi
@@ -163,6 +166,7 @@ echo "RViz config: ${RVIZ_CONFIG}"
 echo "For RViz, add MarkerArray topic: /egg_markers"
 echo "For manual exploration, publish to: /dashboard/cmd_vel"
 echo "Top camera device: ${TOP_CAMERA_DEVICE}"
+echo "Top camera ROS topic: ${CAMERA_ROS_TOPIC}"
 echo "YOLO view window: ${YOLO_VIEW}"
 echo "Stop on egg detection: ${STOP_ON_EGG_DETECTION}"
 echo "Automatic egg approach: ${ENABLE_EGG_APPROACH}"

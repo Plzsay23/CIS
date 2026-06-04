@@ -186,7 +186,7 @@ def parse_args():
     parser.add_argument("--stop-on-detection", action="store_true")
     parser.add_argument("--frame-id", default="base_link")
     parser.add_argument("--camera-height", type=float, default=0.55)
-    parser.add_argument("--camera-pitch-deg", type=float, default=50.0)
+    parser.add_argument("--camera-pitch-deg", type=float, default=40.0)
     parser.add_argument("--camera-forward-offset", type=float, default=0.0)
     parser.add_argument("--horizontal-fov-deg", type=float, default=70.0)
     parser.add_argument("--vertical-fov-deg", type=float, default=42.5)

@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# py310-compat: generated imports
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
+
 
 # Copyright 2025 HuggingFace Inc. team. All rights reserved.
 #
@@ -54,7 +60,7 @@ policy = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
 
 import math
 from collections import deque
-from typing import TypedDict, Unpack
+from typing import TypedDict
 
 import torch
 import torch.nn.functional as F  # noqa: N812

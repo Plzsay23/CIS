@@ -21,6 +21,9 @@ def parse_args():
     parser.add_argument("--fps", type=float, default=30.0)
     parser.add_argument("--jpeg-quality", type=int, default=90)
     parser.add_argument("--rotate-180", action="store_true")
+    parser.add_argument("--reopen-delay", type=float, default=1.0)
+    parser.add_argument("--ros-topic", default="")
+    parser.add_argument("--ros-frame-id", default="top_camera_optical_frame")
     return parser.parse_args()
 
 
@@ -53,7 +56,7 @@ def find_realsense_color_camera():
 def resolve_device(requested):
     if requested != "auto":
         return requested
-    return find_realsense_color_camera() or "/dev/top"
+    return find_realsense_color_camera()
 
 
 def open_capture(requested_device, width, height, fps):
@@ -61,6 +64,8 @@ def open_capture(requested_device, width, height, fps):
     fourccs = ["YUYV", "MJPG", None]
 
     device = resolve_device(requested_device)
+    if not device:
+        raise RuntimeError("No RealSense color camera device found")
     for mode_width, mode_height, mode_fps in modes:
         for fourcc in fourccs:
             cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
@@ -92,7 +97,10 @@ def open_capture(requested_device, width, height, fps):
 
 def main():
     args = parse_args()
-    cap, active_device = open_capture(args.device, args.width, args.height, args.fps)
+    cap = None
+    active_device = None
+    ros_node = None
+    ros_pub = None
 
     context = zmq.Context()
     socket = context.socket(zmq.PUSH)
@@ -100,17 +108,37 @@ def main():
     socket.setsockopt(zmq.LINGER, 0)
     socket.bind(args.address)
 
-    print(
-        f"[INFO] Camera observation stream: {active_device} -> {args.address}, "
-        f"key={args.camera_key}, rotate_180={args.rotate_180}",
-        flush=True,
-    )
+    print(f"[INFO] Camera observation stream binding: {args.address}", flush=True)
+    if args.ros_topic:
+        import rclpy
+        from sensor_msgs.msg import Image
+
+        rclpy.init(args=None)
+        ros_node = rclpy.create_node("lekiwi_camera_obs_stream")
+        ros_pub = ros_node.create_publisher(Image, args.ros_topic, 10)
+        ros_node.get_logger().info(
+            f"Camera ROS image topic: {args.ros_topic}, frame={args.ros_frame_id}"
+        )
 
     period = 1.0 / args.fps if args.fps > 0 else 0.0
     failed_reads = 0
     try:
         while True:
             started = time.monotonic()
+            if cap is None:
+                try:
+                    cap, active_device = open_capture(args.device, args.width, args.height, args.fps)
+                    print(
+                        f"[INFO] Camera observation stream: {active_device} -> {args.address}, "
+                        f"key={args.camera_key}, rotate_180={args.rotate_180}",
+                        flush=True,
+                    )
+                    failed_reads = 0
+                except RuntimeError as exc:
+                    print(f"[WARN] {exc}; retrying", flush=True)
+                    time.sleep(args.reopen_delay)
+                    continue
+
             ok, frame = cap.read()
             if not ok:
                 failed_reads += 1
@@ -118,8 +146,8 @@ def main():
                 if failed_reads >= 30:
                     print("[WARN] Reopening camera stream", flush=True)
                     cap.release()
-                    cap, active_device = open_capture(args.device, args.width, args.height, args.fps)
-                    print(f"[INFO] Camera stream reconnected: {active_device}", flush=True)
+                    cap = None
+                    active_device = None
                     failed_reads = 0
                 time.sleep(0.1)
                 continue
@@ -140,13 +168,30 @@ def main():
                 }
                 socket.send_string(json.dumps(message))
 
+            if ros_pub is not None:
+                msg = Image()
+                msg.header.stamp = ros_node.get_clock().now().to_msg()
+                msg.header.frame_id = args.ros_frame_id
+                msg.height = int(frame.shape[0])
+                msg.width = int(frame.shape[1])
+                msg.encoding = "bgr8"
+                msg.is_bigendian = 0
+                msg.step = int(frame.strides[0])
+                msg.data = frame.tobytes()
+                ros_pub.publish(msg)
+                rclpy.spin_once(ros_node, timeout_sec=0.0)
+
             remaining = period - (time.monotonic() - started)
             if remaining > 0:
                 time.sleep(remaining)
     except KeyboardInterrupt:
         pass
     finally:
-        cap.release()
+        if cap is not None:
+            cap.release()
+        if ros_node is not None:
+            ros_node.destroy_node()
+            rclpy.shutdown()
         socket.close()
         context.term()
 

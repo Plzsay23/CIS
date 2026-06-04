@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# py310-compat: generated imports
+from __future__ import annotations
+from typing import TypeVar, Generic
+
 
 # Copyright 2025 The HuggingFace Inc. team. All rights reserved.
 #
@@ -28,7 +32,6 @@ The core components are:
   to simplify the creation of steps that target specific parts of a data transition.
 """
 
-from __future__ import annotations
 
 import importlib
 import json
@@ -252,7 +255,7 @@ class ProcessorMigrationError(Exception):
 
 
 @dataclass
-class DataProcessorPipeline[TInput, TOutput](HubMixin):
+class DataProcessorPipeline(HubMixin, Generic[TInput, TOutput]):
     """A sequential pipeline for processing data, integrated with the Hugging Face Hub.
 
     This class chains together multiple `ProcessorStep` instances to form a complete

@@ -1,0 +1,15 @@
+{
+  "type": "cis_so101_start_pose",
+  "port": "/dev/follower",
+  "saved_at": "2026-06-04 16:56:10",
+  "unit": "raw_present_position_tick",
+  "note": "Dashboard-readable current SO-101 arm pose. These are raw motor ticks, not normalized LeRobot actions.",
+  "raw_position": {
+    "arm_shoulder_pan": 1973,
+    "arm_shoulder_lift": 875,
+    "arm_elbow_flex": 3027,
+    "arm_wrist_flex": 2696,
+    "arm_wrist_roll": 1992,
+    "arm_gripper": 1992
+  }
+}

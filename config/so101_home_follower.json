@@ -1,0 +1,29 @@
+{
+  "created_at_unix": 1780558904.191208,
+  "port": "/dev/follower",
+  "robot_id": "follower",
+  "action_features": [
+    "shoulder_pan.pos",
+    "shoulder_lift.pos",
+    "elbow_flex.pos",
+    "wrist_flex.pos",
+    "wrist_roll.pos",
+    "gripper.pos"
+  ],
+  "home_action": {
+    "shoulder_pan.pos": -3.208791208791209,
+    "shoulder_lift.pos": -104.21978021978022,
+    "elbow_flex.pos": 97.4065934065934,
+    "wrist_flex.pos": 53.31868131868132,
+    "wrist_roll.pos": -2.681318681318681,
+    "gripper.pos": 2.1761658031088085
+  },
+  "raw_numeric_observation": {
+    "shoulder_pan.pos": -3.208791208791209,
+    "shoulder_lift.pos": -104.21978021978022,
+    "elbow_flex.pos": 97.4065934065934,
+    "wrist_flex.pos": 53.31868131868132,
+    "wrist_roll.pos": -2.681318681318681,
+    "gripper.pos": 2.1761658031088085
+  }
+}
