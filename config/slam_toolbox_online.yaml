@@ -10,7 +10,6 @@ slam_toolbox:
 
     # Mode
     mode: mapping
-    mode: mapping
     debug_logging: false
     throttle_scans: 1
 

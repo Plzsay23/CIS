@@ -5,7 +5,7 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -28,7 +28,8 @@ ARM_MOTORS = {
     "arm_elbow_flex": Motor(3, "sts3215", MotorNormMode.RANGE_M100_100),
     "arm_wrist_flex": Motor(4, "sts3215", MotorNormMode.RANGE_M100_100),
     "arm_wrist_roll": Motor(5, "sts3215", MotorNormMode.RANGE_M100_100),
-    # LeKiwi 원본과 맞춤. raw tick write는 normalize=False로 처리한다.
+    # Keep the gripper exactly on the LeKiwi/LeRobot normalized path.
+    # Do not raw-jog this motor unless you are recalibrating it.
     "arm_gripper": Motor(6, "sts3215", MotorNormMode.RANGE_0_100),
 }
 
@@ -36,11 +37,6 @@ WHEEL_MOTORS = {
     "base_left_wheel": Motor(7, "sts3215", MotorNormMode.RANGE_M100_100),
     "base_back_wheel": Motor(8, "sts3215", MotorNormMode.RANGE_M100_100),
     "base_right_wheel": Motor(9, "sts3215", MotorNormMode.RANGE_M100_100),
-}
-
-ALL_MOTORS = {
-    **ARM_MOTORS,
-    **WHEEL_MOTORS,
 }
 
 ARM_RANGES = {
@@ -61,8 +57,8 @@ ARM_ID_TO_NAME = {
     6: "arm_gripper",
 }
 
-# UI 기준 방향 보정.
-# motor_3, motor_4는 사용자가 보는 좌/우 또는 up/down 방향이 반대라서 반전한다.
+# UI direction correction.
+# User-facing 1, 3, 4 are inverted relative to motor positive direction.
 INVERT_ARM_JOG_MOTOR_IDS = {1, 3, 4}
 
 DEFAULT_HOME_RAW_TICKS = {
@@ -71,6 +67,7 @@ DEFAULT_HOME_RAW_TICKS = {
     "arm_elbow_flex": 3035,
     "arm_wrist_flex": 2925,
     "arm_wrist_roll": 1030,
+    # Gripper is intentionally not used by default during home return.
     "arm_gripper": 2046,
 }
 
@@ -88,10 +85,8 @@ def clamp_int(v: float, lo: int, hi: int) -> int:
     return int(round(max(lo, min(hi, v))))
 
 
-
 def load_motor_calibration_json(path_str: str):
     path = Path(path_str).expanduser()
-
     if not path.exists():
         return None
 
@@ -111,11 +106,13 @@ def load_motor_calibration_json(path_str: str):
     return calibration
 
 
-
-def active_arm_motor_names(disable_gripper: bool):
-    if disable_gripper:
-        return [name for name in ARM_MOTORS.keys() if name != "arm_gripper"]
-    return list(ARM_MOTORS.keys())
+def select_bus_motors(disable_gripper: bool) -> Dict[str, Motor]:
+    arm = {
+        name: motor
+        for name, motor in ARM_MOTORS.items()
+        if not (disable_gripper and name == "arm_gripper")
+    }
+    return {**arm, **WHEEL_MOTORS}
 
 
 class LeKiwiBaseDriverOdom(Node):
@@ -123,45 +120,55 @@ class LeKiwiBaseDriverOdom(Node):
         super().__init__("lekiwi_base_driver_odom")
 
         self.port = args.port
-        self.control_hz = args.control_hz
-        self.cmd_timeout_s = args.cmd_timeout_s
+        self.control_hz = float(args.control_hz)
+        self.cmd_timeout_s = float(args.cmd_timeout_s)
         self.cmd_topic = args.cmd_topic
 
-        self.max_xy = args.max_xy
-        self.max_theta = math.radians(args.max_theta_deg)
+        self.max_xy = float(args.max_xy)
+        self.max_theta = math.radians(float(args.max_theta_deg))
 
-        self.wheel_radius = args.wheel_radius
-        self.base_radius = args.base_radius
-        self.max_raw = args.max_raw
+        self.wheel_radius = float(args.wheel_radius)
+        self.base_radius = float(args.base_radius)
+        self.max_raw = int(args.max_raw)
 
         self.odom_frame = args.odom_frame
         self.base_frame = args.base_frame
 
         self.publish_tf = not args.no_tf
-        self.use_measured_wheel_velocity = args.use_measured_wheel_velocity
+        self.use_measured_wheel_velocity = bool(args.use_measured_wheel_velocity)
 
-        self.arm_acceleration = args.arm_acceleration
-        self.arm_jog_ticks_per_s = args.arm_jog_ticks_per_s
-        self.arm_jog_timeout_s = args.arm_jog_timeout_s
+        self.disable_gripper = bool(args.disable_gripper)
+        self.home_include_gripper = bool(args.home_include_gripper)
+
+        self.arm_acceleration = int(args.arm_acceleration)
+        self.arm_jog_ticks_per_s = float(args.arm_jog_ticks_per_s)
+        self.arm_jog_timeout_s = float(args.arm_jog_timeout_s)
         self.arm_home_json = args.arm_home_json
-        self.arm_home_return_seconds = args.arm_home_return_seconds
-        self.arm_home_return_fps = args.arm_home_return_fps
-        self.gripper_open_tick = args.gripper_open_tick
-        self.gripper_close_tick = args.gripper_close_tick
-        self.disable_gripper = args.disable_gripper
-        self.gripper_open_norm = args.gripper_open_norm
-        self.gripper_close_norm = args.gripper_close_norm
-        self.gripper_jog_norm_per_s = args.gripper_jog_norm_per_s
-        self.gripper_safe_min = args.gripper_safe_min
-        self.gripper_safe_max = args.gripper_safe_max
-        self.gripper_raw_jog_ticks_per_s = args.gripper_raw_jog_ticks_per_s
-        self.calibration_json = args.calibration_json
+        self.arm_home_return_seconds = float(args.arm_home_return_seconds)
+        self.arm_home_return_fps = float(args.arm_home_return_fps)
 
+        # These are UI-space values. With gripper_invert=True, the value written
+        # to the follower bus is 100 - ui_value, matching teleoperate.py behavior.
+        self.gripper_open_norm = float(args.gripper_open_norm)
+        self.gripper_close_norm = float(args.gripper_close_norm)
+        self.gripper_jog_norm_per_s = float(args.gripper_jog_norm_per_s)
+        self.gripper_invert = bool(args.gripper_invert)
+        self.gripper_motion_seconds = float(args.gripper_motion_seconds)
+
+        self.calibration_json = args.calibration_json
         self.calibration = load_motor_calibration_json(self.calibration_json)
+
+        self.active_motors = select_bus_motors(self.disable_gripper)
+        self.active_arm_names = [
+            name
+            for name in ARM_MOTORS.keys()
+            if name in self.active_motors
+        ]
+        self.active_wheel_names = list(WHEEL_MOTORS.keys())
 
         self.bus = FeetechMotorsBus(
             port=self.port,
-            motors=ALL_MOTORS,
+            motors=self.active_motors,
             calibration=self.calibration,
         )
 
@@ -172,12 +179,12 @@ class LeKiwiBaseDriverOdom(Node):
         self.cmd_vy = 0.0
         self.cmd_wz = 0.0
         self.estop = False
-        self.active_arm_names = active_arm_motor_names(self.disable_gripper)
 
         self.arm_motion_busy = False
         self.arm_jog_direction: Dict[str, int] = {}
         self.arm_jog_last_time: Dict[str, float] = {}
         self.arm_position_targets: Dict[str, int] = {}
+        self.gripper_ui_target: Optional[float] = None
 
         self.x = 0.0
         self.y = 0.0
@@ -186,33 +193,10 @@ class LeKiwiBaseDriverOdom(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.odom_pub = self.create_publisher(Odometry, "/odom", 20)
 
-        self.cmd_sub = self.create_subscription(
-            Twist,
-            self.cmd_topic,
-            self.on_cmd_vel,
-            10,
-        )
-
-        self.estop_sub = self.create_subscription(
-            Bool,
-            "/base/estop",
-            self.on_base_estop,
-            10,
-        )
-
-        self.dashboard_estop_sub = self.create_subscription(
-            Bool,
-            "/emergency_stop",
-            self.on_dashboard_estop,
-            10,
-        )
-
-        self.arm_cmd_sub = self.create_subscription(
-            String,
-            "/dashboard/arm_cmd",
-            self.on_arm_cmd,
-            10,
-        )
+        self.cmd_sub = self.create_subscription(Twist, self.cmd_topic, self.on_cmd_vel, 10)
+        self.estop_sub = self.create_subscription(Bool, "/base/estop", self.on_base_estop, 10)
+        self.dashboard_estop_sub = self.create_subscription(Bool, "/emergency_stop", self.on_dashboard_estop, 10)
+        self.arm_cmd_sub = self.create_subscription(String, "/dashboard/arm_cmd", self.on_arm_cmd, 10)
 
         self.connect_and_configure()
 
@@ -220,10 +204,11 @@ class LeKiwiBaseDriverOdom(Node):
         self.timer = self.create_timer(period, self.on_timer)
 
         self.get_logger().info(
-            f"LeKiwi base+arm driver started. "
+            "LeKiwi base+arm dashboard driver started. "
             f"port={self.port}, cmd_topic={self.cmd_topic}, "
-            f"arm_jog_ticks_per_s={self.arm_jog_ticks_per_s}, "
-            f"gripper_open={self.gripper_open_tick}, gripper_close={self.gripper_close_tick}"
+            f"disable_gripper={self.disable_gripper}, "
+            f"gripper_invert={self.gripper_invert}, "
+            f"active_arm_names={self.active_arm_names}"
         )
 
     @staticmethod
@@ -236,6 +221,50 @@ class LeKiwiBaseDriverOdom(Node):
     def raw_to_degps(raw_speed: int) -> float:
         steps_per_deg = 4096.0 / 360.0
         return float(raw_speed) / steps_per_deg
+
+    def safe_write(self, register: str, motor_name: str, value, normalize: Optional[bool] = None, num_retry: int = 5) -> bool:
+        try:
+            if normalize is None:
+                self.bus.write(register, motor_name, value, num_retry=num_retry)
+            else:
+                self.bus.write(register, motor_name, value, normalize=normalize, num_retry=num_retry)
+            return True
+        except TypeError:
+            try:
+                self.bus.write(register, motor_name, value, num_retry=num_retry)
+                return True
+            except Exception as e:
+                self.get_logger().warn(f"write failed: {register} {motor_name}={value}: {e}")
+                return False
+        except Exception as e:
+            self.get_logger().warn(f"write failed: {register} {motor_name}={value}: {e}")
+            return False
+
+    def safe_enable_torque_one(self, name: str) -> bool:
+        ok = self.safe_write("Torque_Enable", name, 1, num_retry=5)
+
+        # Lock write may fail on a noisy bus. It should not kill the node.
+        try:
+            self.bus.write("Lock", name, 1, num_retry=5)
+        except Exception as e:
+            self.get_logger().warn(f"Lock write skipped/failed for {name}: {e}")
+
+        return ok
+
+    def safe_disable_torque_one(self, name: str) -> bool:
+        ok = True
+        try:
+            self.bus.write("Lock", name, 0, num_retry=3)
+        except Exception as e:
+            self.get_logger().warn(f"Lock unlock skipped/failed for {name}: {e}")
+
+        try:
+            self.bus.write("Torque_Enable", name, 0, num_retry=3)
+        except Exception as e:
+            self.get_logger().warn(f"Torque disable skipped/failed for {name}: {e}")
+            ok = False
+
+        return ok
 
     def body_to_wheel_raw(self, vx: float, vy: float, wz_rad: float) -> Dict[str, int]:
         velocity_vector = np.array([vx, vy, wz_rad], dtype=float)
@@ -286,38 +315,26 @@ class LeKiwiBaseDriverOdom(Node):
         self.get_logger().info(f"Connecting Feetech bus: {self.port}")
         self.bus.connect()
 
-        self.get_logger().info("Configuring arm motors ID 1-6 as POSITION, wheels ID 7-9 as VELOCITY")
-        self.bus.disable_torque()
-
-        try:
-            self.bus.configure_motors()
-        except Exception as e:
-            self.get_logger().warn(f"configure_motors skipped/failed: {e}")
+        self.get_logger().info("Configuring active arm motors as POSITION and wheels as VELOCITY")
 
         for name in self.active_arm_names:
-            self.bus.write("Operating_Mode", name, OperatingMode.POSITION.value)
+            self.safe_disable_torque_one(name)
+            self.safe_write("Operating_Mode", name, OperatingMode.POSITION.value, num_retry=5)
 
-            try:
-                self.bus.write("P_Coefficient", name, 16)
-                self.bus.write("I_Coefficient", name, 0)
-                self.bus.write("D_Coefficient", name, 32)
-            except Exception as e:
-                self.get_logger().warn(f"PID write skipped/failed for {name}: {e}")
+            # Conservative enough for dashboard/manual control.
+            self.safe_write("P_Coefficient", name, 16, num_retry=3)
+            self.safe_write("I_Coefficient", name, 0, num_retry=3)
+            self.safe_write("D_Coefficient", name, 32, num_retry=3)
+            self.safe_write("Acceleration", name, self.arm_acceleration, num_retry=3)
 
-            try:
-                self.bus.write("Acceleration", name, self.arm_acceleration)
-            except Exception as e:
-                self.get_logger().warn(f"Arm acceleration write skipped/failed for {name}: {e}")
+        for name in self.active_wheel_names:
+            self.safe_disable_torque_one(name)
+            self.safe_write("Operating_Mode", name, OperatingMode.VELOCITY.value, num_retry=5)
+            self.safe_write("Acceleration", name, 254, num_retry=3)
 
-        for name in WHEEL_MOTORS:
-            self.bus.write("Operating_Mode", name, OperatingMode.VELOCITY.value)
+        for name in self.active_arm_names + self.active_wheel_names:
+            self.safe_enable_torque_one(name)
 
-            try:
-                self.bus.write("Acceleration", name, 254)
-            except Exception as e:
-                self.get_logger().warn(f"Wheel acceleration write skipped/failed for {name}: {e}")
-
-        self.bus.enable_torque()
         self.stop_motors()
 
         try:
@@ -325,6 +342,13 @@ class LeKiwiBaseDriverOdom(Node):
             self.get_logger().info(f"Initial arm raw ticks: {self.arm_position_targets}")
         except Exception as e:
             self.get_logger().warn(f"Initial arm position read failed: {e}")
+
+        if "arm_gripper" in self.active_arm_names:
+            try:
+                self.gripper_ui_target = self.read_gripper_ui_norm()
+                self.get_logger().info(f"Initial gripper UI norm: {self.gripper_ui_target:.2f}")
+            except Exception as e:
+                self.get_logger().warn(f"Initial gripper normalized read failed: {e}")
 
     def stop_motors(self):
         self.bus.sync_write(
@@ -350,7 +374,7 @@ class LeKiwiBaseDriverOdom(Node):
         if now is None:
             now = time.monotonic()
 
-        for name, t in list(self.arm_jog_last_time.items()):
+        for _, t in list(self.arm_jog_last_time.items()):
             if now - t <= self.arm_jog_timeout_s:
                 return True
 
@@ -402,7 +426,7 @@ class LeKiwiBaseDriverOdom(Node):
             return fallback_vx, fallback_vy, fallback_wz
 
         try:
-            raw = self.bus.sync_read("Present_Velocity", list(WHEEL_MOTORS.keys()))
+            raw = self.bus.sync_read("Present_Velocity", self.active_wheel_names)
             return self.wheel_raw_to_body(raw)
         except Exception as e:
             self.get_logger().warn(f"Present_Velocity read failed. Falling back to cmd odom: {e}")
@@ -467,45 +491,25 @@ class LeKiwiBaseDriverOdom(Node):
 
             self.tf_broadcaster.sendTransform(tf)
 
-
-    def clamp_gripper_safe_tick(self, tick: float) -> int:
-        lo = int(self.gripper_safe_min)
-        hi = int(self.gripper_safe_max)
-        if lo > hi:
-            lo, hi = hi, lo
-        return clamp_int(tick, lo, hi)
-
-    def write_gripper_safe_raw(self, target_tick: int, num_retry: int = 3):
-        target = self.clamp_gripper_safe_tick(target_tick)
-        self.bus.write(
-            "Goal_Position",
-            "arm_gripper",
-            target,
-            normalize=False,
-            num_retry=num_retry,
-        )
-        self.arm_position_targets["arm_gripper"] = target
-
-
     def clamp_arm_tick(self, name: str, tick: float) -> int:
         lo, hi = ARM_RANGES[name]
         return clamp_int(tick, lo, hi)
 
     def read_arm_positions_raw(self) -> Dict[str, int]:
-        try:
-            raw = self.bus.sync_read(
-                "Present_Position",
-                self.active_arm_names,
-                normalize=False,
-            )
-        except TypeError:
-            raw = self.bus.sync_read("Present_Position", list(ARM_MOTORS.keys()))
+        names = [name for name in self.active_arm_names if name != "arm_gripper"]
+        if not names:
+            return {}
 
-        return {name: int(raw[name]) for name in self.active_arm_names}
+        try:
+            raw = self.bus.sync_read("Present_Position", names, normalize=False)
+        except TypeError:
+            raw = self.bus.sync_read("Present_Position", names)
+
+        return {name: int(raw[name]) for name in names}
 
     def read_arm_position_raw(self, name: str) -> int:
         try:
-            return int(self.bus.read("Present_Position", name, normalize=False))
+            return int(self.bus.read("Present_Position", name, normalize=False, num_retry=3))
         except TypeError:
             return int(self.bus.read("Present_Position", name))
 
@@ -513,7 +517,7 @@ class LeKiwiBaseDriverOdom(Node):
         clamped = {
             name: self.clamp_arm_tick(name, value)
             for name, value in targets.items()
-            if name in self.active_arm_names
+            if name in self.active_arm_names and name != "arm_gripper"
         }
 
         if not clamped:
@@ -526,6 +530,138 @@ class LeKiwiBaseDriverOdom(Node):
 
         self.arm_position_targets.update(clamped)
 
+    # ----------------------------------------------------------------------
+    # Gripper: normalized LeKiwi/teleoperate.py-compatible path only.
+    # No raw tick write, no raw jog.
+    # ----------------------------------------------------------------------
+    def follower_norm_from_ui_norm(self, ui_norm: float) -> float:
+        ui_norm = float(clamp(ui_norm, 0.0, 100.0))
+        if self.gripper_invert:
+            return 100.0 - ui_norm
+        return ui_norm
+
+    def ui_norm_from_follower_norm(self, follower_norm: float) -> float:
+        follower_norm = float(clamp(follower_norm, 0.0, 100.0))
+        if self.gripper_invert:
+            return 100.0 - follower_norm
+        return follower_norm
+
+    def read_gripper_follower_norm(self) -> float:
+        if "arm_gripper" not in self.active_arm_names:
+            raise RuntimeError("gripper is disabled")
+
+        try:
+            return float(self.bus.read("Present_Position", "arm_gripper", normalize=True, num_retry=3))
+        except TypeError:
+            # If this fallback is hit, the installed bus API may not support normalize=True
+            # on read. Keep the error explicit rather than raw-writing the gripper.
+            raise RuntimeError("This FeetechMotorsBus.read does not support normalize=True for gripper")
+
+    def read_gripper_ui_norm(self) -> float:
+        return self.ui_norm_from_follower_norm(self.read_gripper_follower_norm())
+
+    def write_gripper_ui_norm(self, ui_norm: float, num_retry: int = 3):
+        if "arm_gripper" not in self.active_arm_names:
+            self.get_logger().warn("Ignoring gripper write because gripper is disabled.")
+            return
+
+        ui_norm = float(clamp(ui_norm, 0.0, 100.0))
+        follower_norm = self.follower_norm_from_ui_norm(ui_norm)
+
+        self.bus.write(
+            "Goal_Position",
+            "arm_gripper",
+            follower_norm,
+            normalize=True,
+            num_retry=num_retry,
+        )
+        self.gripper_ui_target = ui_norm
+
+    def move_gripper_ui_smooth(self, target_ui_norm: float):
+        if "arm_gripper" not in self.active_arm_names:
+            self.get_logger().warn("Ignoring gripper motion because gripper is disabled.")
+            return
+
+        self.stop_base_for_arm()
+        self.stop_arm_jog_all()
+
+        target_ui_norm = float(clamp(target_ui_norm, 0.0, 100.0))
+
+        try:
+            current_ui = self.read_gripper_ui_norm()
+        except Exception as e:
+            self.get_logger().warn(f"Gripper normalized read failed, using cached/default target: {e}")
+            current_ui = self.gripper_ui_target
+            if current_ui is None:
+                current_ui = target_ui_norm
+
+        duration = max(0.05, self.gripper_motion_seconds)
+        fps = max(1.0, self.arm_home_return_fps)
+        steps = max(1, int(round(duration * fps)))
+        sleep_s = 1.0 / fps
+
+        self.get_logger().info(
+            f"Gripper UI smooth move: {current_ui:.2f} -> {target_ui_norm:.2f}, "
+            f"invert={self.gripper_invert}, duration={duration:.2f}s, steps={steps}"
+        )
+
+        for i in range(1, steps + 1):
+            alpha = i / steps
+            ui_value = current_ui * (1.0 - alpha) + target_ui_norm * alpha
+            self.write_gripper_ui_norm(ui_value, num_retry=2)
+            time.sleep(sleep_s)
+
+        self.write_gripper_ui_norm(target_ui_norm, num_retry=5)
+
+    def move_gripper_open(self):
+        self.get_logger().info(f"gripper_open UI norm -> {self.gripper_open_norm}")
+        self.move_gripper_ui_smooth(self.gripper_open_norm)
+
+    def move_gripper_close(self):
+        self.get_logger().info(f"gripper_close UI norm -> {self.gripper_close_norm}")
+        self.move_gripper_ui_smooth(self.gripper_close_norm)
+
+    def start_gripper_jog(self, direction: int):
+        if "arm_gripper" not in self.active_arm_names:
+            self.get_logger().warn("Ignoring motor_6 jog because gripper is disabled.")
+            return
+
+        now = time.monotonic()
+        self.stop_base_for_arm()
+
+        if self.gripper_ui_target is None:
+            try:
+                self.gripper_ui_target = self.read_gripper_ui_norm()
+            except Exception as e:
+                self.get_logger().warn(f"Cannot read gripper norm; starting from 50.0: {e}")
+                self.gripper_ui_target = 50.0
+
+        self.arm_jog_direction["arm_gripper"] = 1 if direction > 0 else -1
+        self.arm_jog_last_time["arm_gripper"] = now
+
+    def update_gripper_jog(self, dt: float, direction: int):
+        if self.gripper_ui_target is None:
+            try:
+                self.gripper_ui_target = self.read_gripper_ui_norm()
+            except Exception:
+                self.gripper_ui_target = 50.0
+
+        next_ui = float(clamp(
+            self.gripper_ui_target + direction * self.gripper_jog_norm_per_s * dt,
+            0.0,
+            100.0,
+        ))
+
+        self.write_gripper_ui_norm(next_ui, num_retry=1)
+
+        if next_ui <= 0.0 or next_ui >= 100.0:
+            self.arm_jog_direction.pop("arm_gripper", None)
+            self.arm_jog_last_time.pop("arm_gripper", None)
+
+    # ----------------------------------------------------------------------
+    # Home return: raw deterministic return for 1~5 by default.
+    # Gripper is excluded unless --home-include-gripper is explicitly passed.
+    # ----------------------------------------------------------------------
     def load_home_ticks(self) -> Dict[str, int]:
         path = Path(self.arm_home_json).expanduser()
 
@@ -538,6 +674,11 @@ class LeKiwiBaseDriverOdom(Node):
 
         home = {}
         for name in self.active_arm_names:
+            if name == "arm_gripper" and not self.home_include_gripper:
+                continue
+            if name == "arm_gripper":
+                # Do not raw-home the gripper. It uses normalized open/close only.
+                continue
             if name not in data:
                 raise ValueError(f"Missing home tick for {name} in {path}")
             home[name] = self.clamp_arm_tick(name, int(data[name]))
@@ -555,7 +696,6 @@ class LeKiwiBaseDriverOdom(Node):
         name = ARM_ID_TO_NAME[motor_id]
         self.arm_jog_direction.pop(name, None)
         self.arm_jog_last_time.pop(name, None)
-
         self.get_logger().info(f"Stopped arm jog motor {motor_id} ({name})")
 
     def start_arm_jog(self, motor_id: int, direction: int):
@@ -564,8 +704,17 @@ class LeKiwiBaseDriverOdom(Node):
             return
 
         name = ARM_ID_TO_NAME[motor_id]
-        now = time.monotonic()
 
+        if name == "arm_gripper":
+            # Gripper jog is normalized, not raw.
+            self.start_gripper_jog(direction)
+            return
+
+        if name not in self.active_arm_names:
+            self.get_logger().warn(f"Ignoring inactive arm motor command: {motor_id} ({name})")
+            return
+
+        now = time.monotonic()
         self.stop_base_for_arm()
 
         if name not in self.arm_position_targets:
@@ -596,38 +745,17 @@ class LeKiwiBaseDriverOdom(Node):
                 self.arm_jog_last_time.pop(name, None)
                 continue
 
+            direction = self.arm_jog_direction[name]
+
+            if name == "arm_gripper":
+                self.update_gripper_jog(dt, direction)
+                continue
+
             if name not in self.arm_position_targets:
                 self.arm_position_targets[name] = self.clamp_arm_tick(
                     name,
                     self.read_arm_position_raw(name),
                 )
-
-            direction = self.arm_jog_direction[name]
-
-            if name == "arm_gripper":
-                if "arm_gripper" not in self.arm_position_targets:
-                    self.arm_position_targets["arm_gripper"] = self.clamp_gripper_safe_tick(
-                        self.read_arm_position_raw("arm_gripper")
-                    )
-
-                current_target = int(self.arm_position_targets["arm_gripper"])
-                next_target = self.clamp_gripper_safe_tick(
-                    current_target + direction * self.gripper_raw_jog_ticks_per_s * dt
-                )
-
-                self.arm_position_targets["arm_gripper"] = next_target
-                self.write_gripper_safe_raw(next_target, num_retry=1)
-
-                lo = int(self.gripper_safe_min)
-                hi = int(self.gripper_safe_max)
-                if lo > hi:
-                    lo, hi = hi, lo
-
-                if next_target <= lo or next_target >= hi:
-                    self.arm_jog_direction.pop(name, None)
-                    self.arm_jog_last_time.pop(name, None)
-
-                continue
 
             current_target = self.arm_position_targets[name]
             next_target = self.clamp_arm_tick(
@@ -646,40 +774,6 @@ class LeKiwiBaseDriverOdom(Node):
         if targets:
             self.write_arm_positions_raw(targets)
 
-
-    def write_arm_position_raw_direct(self, name: str, target_tick: int, num_retry: int = 5):
-        target = self.clamp_arm_tick(name, target_tick)
-
-        try:
-            before = self.read_arm_position_raw(name)
-        except Exception as e:
-            before = None
-            self.get_logger().warn(f"Failed to read {name} before direct write: {e}")
-
-        self.get_logger().info(
-            f"Direct raw write {name}: before={before}, target={target}"
-        )
-
-        self.bus.write(
-            "Goal_Position",
-            name,
-            target,
-            normalize=False,
-            num_retry=num_retry,
-        )
-
-        self.arm_position_targets[name] = target
-
-        try:
-            time.sleep(0.05)
-            after = self.read_arm_position_raw(name)
-            self.get_logger().info(
-                f"Direct raw write {name}: after={after}, target={target}"
-            )
-        except Exception as e:
-            self.get_logger().warn(f"Failed to read {name} after direct write: {e}")
-
-
     def move_arm_targets_smooth(self, final_targets: Dict[str, int], seconds: Optional[float] = None):
         if seconds is None:
             seconds = self.arm_home_return_seconds
@@ -687,7 +781,11 @@ class LeKiwiBaseDriverOdom(Node):
         self.stop_base_for_arm()
         self.stop_arm_jog_all()
 
-        names = [name for name in final_targets if name in ARM_MOTORS]
+        names = [
+            name
+            for name in final_targets
+            if name in self.active_arm_names and name != "arm_gripper"
+        ]
         if not names:
             return
 
@@ -722,110 +820,9 @@ class LeKiwiBaseDriverOdom(Node):
 
         self.write_arm_positions_raw(final)
 
-
-    def move_gripper_raw_smooth(self, target_tick: int):
-        name = "arm_gripper"
-        target = self.clamp_arm_tick(name, target_tick)
-
-        self.stop_base_for_arm()
-        self.stop_arm_jog_all()
-
-        try:
-            current = self.read_arm_position_raw(name)
-        except Exception as e:
-            self.get_logger().error(f"Failed to read gripper present position: {e}")
-            # read가 안 돼도 목표값은 직접 쏴본다.
-            self.write_arm_position_raw_direct(name, target, num_retry=5)
-            return
-
-        duration = max(0.05, float(self.arm_home_return_seconds))
-        fps = max(1.0, float(self.arm_home_return_fps))
-        steps = max(1, int(round(duration * fps)))
-        sleep_s = 1.0 / fps
-
-        self.get_logger().info(
-            f"Gripper smooth raw move: {current} -> {target}, duration={duration:.2f}s, fps={fps:.1f}, steps={steps}"
-        )
-
-        for i in range(1, steps + 1):
-            alpha = i / steps
-            value = self.clamp_arm_tick(
-                name,
-                current * (1.0 - alpha) + target * alpha,
-            )
-            self.write_arm_position_raw_direct(name, value, num_retry=2)
-            time.sleep(sleep_s)
-
-        self.write_arm_position_raw_direct(name, target, num_retry=5)
-
-
-    def read_gripper_norm(self) -> float:
-        return float(self.bus.read("Present_Position", "arm_gripper", normalize=True, num_retry=3))
-
-    def write_gripper_norm(self, value: float, num_retry: int = 3):
-        value = float(clamp(value, 0.0, 100.0))
-        self.bus.write(
-            "Goal_Position",
-            "arm_gripper",
-            value,
-            normalize=True,
-            num_retry=num_retry,
-        )
-
-    def move_gripper_norm_smooth(self, target_norm: float):
-        self.stop_base_for_arm()
-        self.stop_arm_jog_all()
-
-        target_norm = float(clamp(target_norm, 0.0, 100.0))
-
-        try:
-            current = self.read_gripper_norm()
-        except Exception as e:
-            self.get_logger().error(f"Failed to read gripper normalized position: {e}")
-            self.write_gripper_norm(target_norm, num_retry=5)
-            return
-
-        duration = max(0.05, float(self.arm_home_return_seconds))
-        fps = max(1.0, float(self.arm_home_return_fps))
-        steps = max(1, int(round(duration * fps)))
-        sleep_s = 1.0 / fps
-
-        self.get_logger().info(
-            f"Gripper normalized smooth move: {current:.2f} -> {target_norm:.2f}, "
-            f"duration={duration:.2f}s, fps={fps:.1f}, steps={steps}"
-        )
-
-        for i in range(1, steps + 1):
-            alpha = i / steps
-            value = current * (1.0 - alpha) + target_norm * alpha
-            self.write_gripper_norm(value, num_retry=2)
-            time.sleep(sleep_s)
-
-        self.write_gripper_norm(target_norm, num_retry=5)
-
-
-    def move_gripper_open(self):
-        target = self.clamp_gripper_safe_tick(self.gripper_safe_min)
-        self.get_logger().info(f"Gripper safe open -> raw {target}")
-        self.move_arm_targets_smooth({"arm_gripper": target}, seconds=self.arm_home_return_seconds)
-
-    def move_gripper_close(self):
-        target = self.clamp_gripper_safe_tick(self.gripper_safe_max)
-        self.get_logger().info(f"Gripper safe close -> raw {target}")
-        self.move_arm_targets_smooth({"arm_gripper": target}, seconds=self.arm_home_return_seconds)
-
     def return_arm_home(self):
         home = self.load_home_ticks()
-
-        # Gripper is mechanically overloaded in the current build.
-        # Do not touch ID 6 during arm_home until the safe mechanical range is remeasured.
-        if "arm_gripper" in home:
-            removed = home.pop("arm_gripper")
-            self.get_logger().warn(
-                f"Skipping arm_gripper during arm_home to avoid torque lock. skipped_home_tick={removed}"
-            )
-
-        self.get_logger().info(f"Returning arm home without gripper -> {home}")
+        self.get_logger().info(f"Returning arm home without raw gripper -> {home}")
         self.move_arm_targets_smooth(home, seconds=self.arm_home_return_seconds)
         self.get_logger().info("Arm home return complete.")
 
@@ -842,14 +839,14 @@ class LeKiwiBaseDriverOdom(Node):
         try:
             if command == "gripper_open":
                 if self.disable_gripper:
-                    self.get_logger().warn("Ignoring gripper command because --disable-gripper is set.")
+                    self.get_logger().warn("Ignoring gripper_open because --disable-gripper is set.")
                     return
                 self.arm_motion_busy = True
                 self.move_gripper_open()
 
             elif command == "gripper_close":
                 if self.disable_gripper:
-                    self.get_logger().warn("Ignoring gripper command because --disable-gripper is set.")
+                    self.get_logger().warn("Ignoring gripper_close because --disable-gripper is set.")
                     return
                 self.arm_motion_busy = True
                 self.move_gripper_close()
@@ -866,12 +863,6 @@ class LeKiwiBaseDriverOdom(Node):
 
                 motor_id = int(parts[1])
                 op = parts[2]
-
-                if self.disable_gripper and motor_id == 6:
-                    self.get_logger().warn(
-                        f"Ignoring motor 6 command because gripper is disabled: {command}"
-                    )
-                    return
 
                 if op == "up":
                     self.start_arm_jog(motor_id, 1)
@@ -916,7 +907,6 @@ class LeKiwiBaseDriverOdom(Node):
             self.get_logger().error(f"Arm jog update failed: {e}")
 
         vx_odom, vy_odom, wz_odom = self.read_body_velocity(vx_cmd, vy_cmd, wz_cmd)
-
         self.integrate_odom(vx_odom, vy_odom, wz_odom, dt)
         self.publish_odom(vx_odom, vy_odom, wz_odom)
 
@@ -954,23 +944,25 @@ def parse_args():
     parser.add_argument("--no-tf", action="store_true")
     parser.add_argument("--use-measured-wheel-velocity", action="store_true")
 
-    parser.add_argument("--arm-acceleration", type=int, default=254)
-    parser.add_argument("--arm-jog-ticks-per-s", type=float, default=900.0)
-    parser.add_argument("--arm-jog-timeout-s", type=float, default=0.25)
-
-    parser.add_argument("--arm-home-json", default="/home/lerobot/CIS/config/arm_home_raw_ticks.json")
     parser.add_argument("--calibration-json", default="/home/lerobot/CIS/config/lekiwi.json")
-    parser.add_argument("--arm-home-return-seconds", type=float, default=0.7)
-    parser.add_argument("--arm-home-return-fps", type=float, default=50.0)
+    parser.add_argument("--disable-gripper", action="store_true")
+    parser.add_argument("--home-include-gripper", action="store_true")
 
-    parser.add_argument("--gripper-open-tick", type=int, default=2046)
-    parser.add_argument("--gripper-close-tick", type=int, default=3100)
-    parser.add_argument("--gripper-safe-min", type=int, default=2035)
-    parser.add_argument("--gripper-safe-max", type=int, default=2200)
-    parser.add_argument("--gripper-raw-jog-ticks-per-s", type=float, default=180.0)
+    parser.add_argument("--arm-acceleration", type=int, default=180)
+    parser.add_argument("--arm-jog-ticks-per-s", type=float, default=700.0)
+    parser.add_argument("--arm-jog-timeout-s", type=float, default=0.25)
+    parser.add_argument("--arm-home-json", default="/home/lerobot/CIS/config/arm_home_raw_ticks.json")
+    parser.add_argument("--arm-home-return-seconds", type=float, default=0.9)
+    parser.add_argument("--arm-home-return-fps", type=float, default=40.0)
+
+    # UI-space gripper values. Internally inverted by default to match teleoperate.py:
+    # follower_gripper = 100 - ui_gripper
     parser.add_argument("--gripper-open-norm", type=float, default=0.0)
     parser.add_argument("--gripper-close-norm", type=float, default=100.0)
-    parser.add_argument("--gripper-jog-norm-per-s", type=float, default=80.0)
+    parser.add_argument("--gripper-jog-norm-per-s", type=float, default=25.0)
+    parser.add_argument("--gripper-motion-seconds", type=float, default=1.2)
+    parser.add_argument("--no-gripper-invert", dest="gripper_invert", action="store_false")
+    parser.set_defaults(gripper_invert=True)
 
     return parser.parse_args()
 
