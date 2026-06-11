@@ -1,0 +1,370 @@
+[
+  {
+    "class_id": 64,
+    "class_name": "mouse",
+    "confidence": 0.090746,
+    "bbox_xyxy": [
+      277.5,
+      96.3,
+      465.5,
+      288.3
+    ],
+    "center_px": [
+      371.5,
+      192.3
+    ],
+    "area_ratio": 0.117521
+  },
+  {
+    "class_id": 60,
+    "class_name": "dining table",
+    "confidence": 0.090584,
+    "bbox_xyxy": [
+      1.1,
+      0.8,
+      638.9,
+      478.9
+    ],
+    "center_px": [
+      320.0,
+      239.8
+    ],
+    "area_ratio": 0.992637
+  },
+  {
+    "class_id": 77,
+    "class_name": "teddy bear",
+    "confidence": 0.079433,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 0,
+    "class_name": "person",
+    "confidence": 0.068623,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 47,
+    "class_name": "apple",
+    "confidence": 0.057902,
+    "bbox_xyxy": [
+      277.5,
+      96.3,
+      465.5,
+      288.3
+    ],
+    "center_px": [
+      371.5,
+      192.3
+    ],
+    "area_ratio": 0.117521
+  },
+  {
+    "class_id": 0,
+    "class_name": "person",
+    "confidence": 0.055823,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 77,
+    "class_name": "teddy bear",
+    "confidence": 0.054048,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 16,
+    "class_name": "dog",
+    "confidence": 0.024644,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 61,
+    "class_name": "toilet",
+    "confidence": 0.02387,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 15,
+    "class_name": "cat",
+    "confidence": 0.020373,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 60,
+    "class_name": "dining table",
+    "confidence": 0.019187,
+    "bbox_xyxy": [
+      124.1,
+      2.2,
+      638.8,
+      477.8
+    ],
+    "center_px": [
+      381.5,
+      240.0
+    ],
+    "area_ratio": 0.79699
+  },
+  {
+    "class_id": 61,
+    "class_name": "toilet",
+    "confidence": 0.017966,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 15,
+    "class_name": "cat",
+    "confidence": 0.01785,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 16,
+    "class_name": "dog",
+    "confidence": 0.015702,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 47,
+    "class_name": "apple",
+    "confidence": 0.015413,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 47,
+    "class_name": "apple",
+    "confidence": 0.014722,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 14,
+    "class_name": "bird",
+    "confidence": 0.014526,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  },
+  {
+    "class_id": 60,
+    "class_name": "dining table",
+    "confidence": 0.014024,
+    "bbox_xyxy": [
+      0.3,
+      2.4,
+      634.3,
+      480.0
+    ],
+    "center_px": [
+      317.3,
+      241.2
+    ],
+    "area_ratio": 0.985679
+  },
+  {
+    "class_id": 32,
+    "class_name": "sports ball",
+    "confidence": 0.013722,
+    "bbox_xyxy": [
+      277.5,
+      96.3,
+      465.5,
+      288.3
+    ],
+    "center_px": [
+      371.5,
+      192.3
+    ],
+    "area_ratio": 0.117521
+  },
+  {
+    "class_id": 46,
+    "class_name": "banana",
+    "confidence": 0.012732,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 55,
+    "class_name": "cake",
+    "confidence": 0.012699,
+    "bbox_xyxy": [
+      346.9,
+      312.4,
+      575.7,
+      479.5
+    ],
+    "center_px": [
+      461.3,
+      396.0
+    ],
+    "area_ratio": 0.124395
+  },
+  {
+    "class_id": 60,
+    "class_name": "dining table",
+    "confidence": 0.01051,
+    "bbox_xyxy": [
+      11.7,
+      300.0,
+      612.4,
+      479.2
+    ],
+    "center_px": [
+      312.0,
+      389.6
+    ],
+    "area_ratio": 0.350283
+  },
+  {
+    "class_id": 46,
+    "class_name": "banana",
+    "confidence": 0.010379,
+    "bbox_xyxy": [
+      15.7,
+      302.2,
+      245.4,
+      479.5
+    ],
+    "center_px": [
+      130.5,
+      390.8
+    ],
+    "area_ratio": 0.132573
+  }
+]

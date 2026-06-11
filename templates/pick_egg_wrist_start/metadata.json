@@ -1,0 +1,233 @@
+{
+  "repo_id": "plzsay/pick_egg",
+  "camera_key": "wrist",
+  "dataset_root": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg",
+  "crop_ratios": {
+    "x_min": 0.1,
+    "x_max": 0.9,
+    "y_min": 0.05,
+    "y_max": 0.75
+  },
+  "target_center_norm": {
+    "x": 0.0,
+    "y": -0.19999999999999996
+  },
+  "templates": [
+    {
+      "filename": "templates/ep0000_fr000_vid0000_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0000_fr000_vid0000.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-000.mp4",
+      "episode_index": 0,
+      "frame_index": 0,
+      "video_index": 0,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0000_fr001_vid0000_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0000_fr001_vid0000.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-000.mp4",
+      "episode_index": 0,
+      "frame_index": 1,
+      "video_index": 0,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0000_fr002_vid0000_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0000_fr002_vid0000.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-000.mp4",
+      "episode_index": 0,
+      "frame_index": 2,
+      "video_index": 0,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0001_fr000_vid0001_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0001_fr000_vid0001.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-001.mp4",
+      "episode_index": 1,
+      "frame_index": 0,
+      "video_index": 1,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0001_fr001_vid0001_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0001_fr001_vid0001.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-001.mp4",
+      "episode_index": 1,
+      "frame_index": 1,
+      "video_index": 1,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0001_fr002_vid0001_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0001_fr002_vid0001.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-001.mp4",
+      "episode_index": 1,
+      "frame_index": 2,
+      "video_index": 1,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0002_fr000_vid0002_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0002_fr000_vid0002.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-002.mp4",
+      "episode_index": 2,
+      "frame_index": 0,
+      "video_index": 2,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0002_fr001_vid0002_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0002_fr001_vid0002.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-002.mp4",
+      "episode_index": 2,
+      "frame_index": 1,
+      "video_index": 2,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0002_fr002_vid0002_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0002_fr002_vid0002.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-002.mp4",
+      "episode_index": 2,
+      "frame_index": 2,
+      "video_index": 2,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0003_fr000_vid0003_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0003_fr000_vid0003.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-003.mp4",
+      "episode_index": 3,
+      "frame_index": 0,
+      "video_index": 3,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0003_fr001_vid0003_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0003_fr001_vid0003.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-003.mp4",
+      "episode_index": 3,
+      "frame_index": 1,
+      "video_index": 3,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    },
+    {
+      "filename": "templates/ep0003_fr002_vid0003_tpl.jpg",
+      "raw_filename": "raw_start_frames/ep0003_fr002_vid0003.jpg",
+      "source_video": "/home/lerobot/.cache/huggingface/lerobot/plzsay/pick_egg/videos/observation.images.wrist/chunk-000/file-003.mp4",
+      "episode_index": 3,
+      "frame_index": 2,
+      "video_index": 3,
+      "image_width": 640,
+      "image_height": 480,
+      "crop_xyxy": [
+        64,
+        24,
+        576,
+        360
+      ],
+      "template_width": 512,
+      "template_height": 336
+    }
+  ]
+}
