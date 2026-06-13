@@ -25,7 +25,7 @@ OCCUPIED = 0
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate hand-tuned LeKiwi Nav2 map.")
     parser.add_argument("--output-dir", default="/home/lerobot/CIS/nav_maps/generated")
-    parser.add_argument("--name", default="lekiwi_map_v2")
+    parser.add_argument("--name", default="lekiwi_poultry_house")
     parser.add_argument("--resolution", type=float, default=0.05)
     parser.add_argument("--min-x", type=float, default=-16.0)
     parser.add_argument("--max-x", type=float, default=36.0)

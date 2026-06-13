@@ -16,8 +16,8 @@ def video_index_from_path(value: str):
     if value.isdigit():
         return int(value)
 
-    real = os.path.realpath(value)
-    for candidate in (value, real):
+    resolved = os.path.realpath(value)
+    for candidate in (value, resolved):
         m = re.fullmatch(r"/dev/video(\d+)", candidate)
         if m:
             return int(m.group(1))

@@ -1,4 +1,4 @@
-REAL dashboard run order
+Robot dashboard run order
 
 1) cmd_vel mux
 cd ~/CIS
@@ -8,7 +8,7 @@ source ~/CIS/ros2_ws/install/setup.bash
 python3 ~/CIS/scripts/cmd_vel_mux_node.py
 
 2) odom/base driver
-~/CIS/dashboard/start_lekiwi_odom_real.sh
+~/CIS/dashboard/start_lekiwi_odom.sh
 
 Equivalent manual command:
 cd ~/CIS
@@ -22,8 +22,8 @@ python3 ~/CIS/scripts/lekiwi_base_driver_odom_node.py \
   --arm-home-return-seconds 0.8 \
   --arm-home-return-fps 50
 
-3) real dashboard
-~/CIS/dashboard/start_dashboard_real.sh
+3) dashboard
+~/CIS/dashboard/start_robot_dashboard.sh
 
 Open:
 http://localhost:8082

@@ -20,7 +20,7 @@ python src/lerobot/async_inference/robot_client.py \
     --robot.port=/dev/tty.usbmodem58760431541 \
     --robot.cameras="{ front: {type: opencv, index_or_path: 0, width: 1920, height: 1080, fps: 30}}" \
     --robot.id=black \
-    --task="dummy" \
+    --task="egg_collection" \
     --server_address=127.0.0.1:8080 \
     --policy_type=act \
     --pretrained_name_or_path=user/model \

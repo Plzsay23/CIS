@@ -110,7 +110,7 @@ def import_serial_module():
     try:
         import serial
     except ImportError as exc:
-        raise RuntimeError("pyserial is required for real Arduino streaming") from exc
+        raise RuntimeError("pyserial is required for Arduino streaming") from exc
     return serial
 
 
@@ -118,7 +118,7 @@ def import_websocket_module():
     try:
         import websocket
     except ImportError as exc:
-        raise RuntimeError("websocket-client is required for real WebSocket streaming") from exc
+        raise RuntimeError("websocket-client is required for WebSocket streaming") from exc
     return websocket
 
 

@@ -29,14 +29,14 @@ def parse_camera_id(value: str):
 
     # /dev/wrist 같은 udev symlink는 OpenCV가 문자열 경로로 못 여는 경우가 있다.
     # /dev/videoN으로 resolve되면 정수 N으로 여는 것이 가장 안정적이다.
-    real = os.path.realpath(value)
+    resolved = os.path.realpath(value)
 
-    for candidate in (value, real):
+    for candidate in (value, resolved):
         m = re.fullmatch(r"/dev/video(\d+)", candidate)
         if m:
             return int(m.group(1))
 
-    return real
+    return resolved
 
 
 def bgr_to_image_msg(frame: np.ndarray, stamp, frame_id: str) -> Image:

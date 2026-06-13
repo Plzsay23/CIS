@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>계사 환경 모니터링 맵 - Nav2 맵 기반 V2</title>
+  <title>계사 환경 모니터링 맵 - 로봇 /odom 연동</title>
 
   <style>
     * {
@@ -593,13 +593,140 @@
       opacity: 0.35;
       cursor: not-allowed;
     }
+
+
+    .view-switcher {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      background: white;
+      border: 1px solid #cfd3da;
+      border-radius: 8px;
+      padding: 7px 9px;
+      white-space: nowrap;
+    }
+
+    .view-switcher-label {
+      font-size: 13px;
+      font-weight: 900;
+      color: #374151;
+      margin-right: 2px;
+    }
+
+    .view-btn,
+    .metric-toggle-btn {
+      border: 1px solid #cfd3da;
+      background: #f8fafc;
+      color: #111827;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-weight: 900;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .view-btn:hover,
+    .metric-toggle-btn:hover {
+      background: #eef2ff;
+      border-color: #93c5fd;
+    }
+
+    .view-btn.active,
+    .metric-toggle-btn.active {
+      background: #2563eb;
+      color: white;
+      border-color: #2563eb;
+    }
+
+    .metric-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .metric-title-row .metric-title {
+      margin: 0;
+    }
+
+    body.metric-focus .main {
+      grid-template-columns: 1fr;
+    }
+
+    body.metric-focus .sidebar,
+    body.metric-focus .footer {
+      display: none;
+    }
+
+    body.metric-focus .panels {
+      grid-template-columns: 1fr;
+    }
+
+    body.metric-focus .metric-card {
+      display: none;
+    }
+
+    body.metric-focus .metric-card.active-metric {
+      display: block;
+      min-height: calc(100vh - 145px);
+    }
+
+    body.metric-focus .metric-card.active-metric .metric-content {
+      grid-template-columns: minmax(0, 1fr) 150px;
+      gap: 12px;
+    }
+
+    body.metric-focus .metric-card.active-metric canvas.map {
+      height: calc(100vh - 255px);
+      min-height: 610px;
+    }
+
+    .drive-panel {
+      max-height: calc(100vh - 34px);
+      overflow-y: auto;
+    }
+
+    .drive-title {
+      cursor: move;
+      touch-action: none;
+    }
+
+    .drive-title-left {
+      display: grid;
+      gap: 2px;
+    }
+
+    .drive-drag-hint {
+      font-size: 10px;
+      color: #cbd5e1;
+      font-weight: 700;
+      opacity: 0.82;
+    }
+
+    .drive-panel.dragging-panel {
+      opacity: 0.92;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.42);
+    }
+
+    @media (max-width: 1350px) {
+      .topbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      body.metric-focus .metric-card.active-metric canvas.map {
+        min-height: 520px;
+      }
+    }
+
 </style>
 </head>
 
 <body>
   <div class="page">
     <div class="topbar">
-      <div class="title">계사 환경 모니터링 맵 V2 (Nav2 2D맵)</div>
+      <div class="title">계사 환경 모니터링 맵 (로봇 /odom)</div>
 
       <div class="legend-top">
         <span>🔵 로봇/측정점</span>
@@ -608,14 +735,27 @@
         <span>🎨 관측된 환경 데이터</span>
       </div>
 
+      <div class="view-switcher" id="viewSwitcher">
+        <span class="view-switcher-label">전환</span>
+        <button class="view-btn active" data-view="all">전체</button>
+        <button class="view-btn" data-view="temp">온도 확대</button>
+        <button class="view-btn" data-view="humid">습도 확대</button>
+        <button class="view-btn" data-view="co2">CO₂ 확대</button>
+        <button class="view-btn" data-view="vent">환기 확대</button>
+      </div>
+
       <div class="updated" id="updated">최근 업데이트 : -</div>
+      <div class="updated" id="modeStatus">실제 위치 : /odom 대기</div>
     </div>
 
     <div class="main">
       <div>
         <div class="panels">
-          <section class="metric-card">
-            <h2 class="metric-title temp-title">🌡️ 온도 (℃)</h2>
+          <section class="metric-card" data-metric="temp">
+            <div class="metric-title-row">
+              <h2 class="metric-title temp-title">🌡️ 온도 (℃)</h2>
+              <button class="metric-toggle-btn" data-view="temp">확대</button>
+            </div>
             <div class="metric-content">
               <canvas class="map" id="tempMap" width="560" height="360"></canvas>
               <div>
@@ -632,8 +772,11 @@
             </div>
           </section>
 
-          <section class="metric-card">
-            <h2 class="metric-title humid-title">💧 습도 (%)</h2>
+          <section class="metric-card" data-metric="humid">
+            <div class="metric-title-row">
+              <h2 class="metric-title humid-title">💧 습도 (%)</h2>
+              <button class="metric-toggle-btn" data-view="humid">확대</button>
+            </div>
             <div class="metric-content">
               <canvas class="map" id="humidMap" width="560" height="360"></canvas>
               <div>
@@ -650,8 +793,11 @@
             </div>
           </section>
 
-          <section class="metric-card">
-            <h2 class="metric-title co2-title">🌿 CO₂ (ppm)</h2>
+          <section class="metric-card" data-metric="co2">
+            <div class="metric-title-row">
+              <h2 class="metric-title co2-title">🌿 CO₂ (ppm)</h2>
+              <button class="metric-toggle-btn" data-view="co2">확대</button>
+            </div>
             <div class="metric-content">
               <canvas class="map" id="co2Map" width="560" height="360"></canvas>
               <div>
@@ -667,8 +813,11 @@
             </div>
           </section>
 
-          <section class="metric-card">
-            <h2 class="metric-title vent-title">🌀 환기량 (CO₂ & NH₃ 기반)</h2>
+          <section class="metric-card" data-metric="vent">
+            <div class="metric-title-row">
+              <h2 class="metric-title vent-title">🌀 환기량 (CO₂ & NH₃ 기반)</h2>
+              <button class="metric-toggle-btn" data-view="vent">확대</button>
+            </div>
             <div class="metric-content">
               <canvas class="map" id="ventMap" width="560" height="360"></canvas>
               <div>
@@ -737,8 +886,11 @@
 
   <!-- DASHBOARD_DRIVE_PANEL_START -->
   <div id="drive-panel" class="drive-panel">
-    <div class="drive-title">
-      <span>로봇 원격 수동 조작</span>
+    <div class="drive-title" id="drive-drag-handle">
+      <span class="drive-title-left">
+        <span>로봇 원격 수동 조작</span>
+        <span class="drive-drag-hint">상단을 잡고 원하는 위치로 이동</span>
+      </span>
       <span class="drive-badge">/dashboard/cmd_vel</span>
     </div>
 
@@ -792,7 +944,7 @@
 
     </div>
 
-    <div id="drive-status" class="drive-status">drive websocket: connecting</div>
+    <div id="drive-status" class="drive-status">dashboard: connecting</div>
   </div>
   <!-- DASHBOARD_DRIVE_PANEL_END -->
 
@@ -805,7 +957,7 @@ const barn = {
 };
 
 let robotPhase = 0;
-let virtualRobotPose = {
+let robotPose = {
   x: 5.0,
   y: 12.0,
   yaw: 0.0,
@@ -847,6 +999,49 @@ const canvases = {
   co2: document.getElementById("co2Map"),
   vent: document.getElementById("ventMap")
 };
+
+
+const metricViewLabels = {
+  all: "전체",
+  temp: "온도 확대",
+  humid: "습도 확대",
+  co2: "CO₂ 확대",
+  vent: "환기 확대"
+};
+let activeMetricView = "all";
+
+function setMetricView(view) {
+  activeMetricView = metricViewLabels[view] ? view : "all";
+  const focus = activeMetricView !== "all";
+  document.body.classList.toggle("metric-focus", focus);
+
+  document.querySelectorAll(".metric-card[data-metric]").forEach((card) => {
+    card.classList.toggle("active-metric", focus && card.dataset.metric === activeMetricView);
+  });
+
+  document.querySelectorAll(".view-btn[data-view], .metric-toggle-btn[data-view]").forEach((button) => {
+    const buttonView = button.getAttribute("data-view");
+    const isActive = buttonView === activeMetricView || (!focus && buttonView === "all");
+    button.classList.toggle("active", isActive);
+    if (button.classList.contains("metric-toggle-btn")) {
+      button.textContent = focus && buttonView === activeMetricView ? "전체 보기" : "확대";
+    }
+  });
+}
+
+function initMetricViewControls() {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const view = button.getAttribute("data-view") || "all";
+      if (button.classList.contains("metric-toggle-btn") && activeMetricView === view) {
+        setMetricView("all");
+      } else {
+        setMetricView(view);
+      }
+    });
+  });
+  setMetricView("all");
+}
 
 const sensors = [
   { id: "L1", side: "left",  rx: 0.105, ry: 0.12 },
@@ -1016,10 +1211,10 @@ function ventStatus(v) {
 }
 
 function getRobotPose(side) {
-  const mapW = virtualRobotPose.map_width_m || 52.0;
-  const mapH = virtualRobotPose.map_height_m || 24.0;
-  const rx = clamp(virtualRobotPose.x / mapW, 0, 1);
-  const ry = clamp(1 - (virtualRobotPose.y / mapH), 0, 1);
+  const mapW = robotPose.map_width_m || 52.0;
+  const mapH = robotPose.map_height_m || 24.0;
+  const rx = clamp(robotPose.x / mapW, 0, 1);
+  const ry = clamp(1 - (robotPose.y / mapH), 0, 1);
 
   return {
     side,
@@ -1181,7 +1376,7 @@ function drawPatrol(ctx) {
 
   ctx.fillStyle = "#854d0e";
   ctx.font = "bold 12px Arial";
-  ctx.fillText("가상 로봇 이동/관측 영역", barn.x + 10, barn.y + 18);
+  ctx.fillText("실제 로봇 이동/관측 영역", barn.x + 10, barn.y + 18);
 
   ctx.restore();
 }
@@ -1241,8 +1436,11 @@ function drawSensors(ctx, type) {
 }
 
 function drawRobot(ctx) {
+  const poseMode = latestDashboardState?.pose_mode || "robot";
+  const poseReceived = latestDashboardState?.pose_received;
+  const label = poseReceived ? "BOT" : "BOT?";
   const robots = [
-    { side: "virtual", label: "R" }
+    { side: poseMode, label }
   ];
 
   ctx.save();
@@ -1266,7 +1464,7 @@ function drawRobot(ctx) {
 
     ctx.save();
     ctx.translate(r.x, r.y);
-    ctx.rotate(-virtualRobotPose.yaw);
+    ctx.rotate(-robotPose.yaw);
     ctx.beginPath();
     ctx.strokeStyle = "#ef4444";
     ctx.lineWidth = 3;
@@ -1607,23 +1805,32 @@ function updateDashboardState(data) {
   if (!data || !data.ok) return;
   latestDashboardState = data;
 
+  const modeStatusEl = document.getElementById("modeStatus");
+  if (modeStatusEl) {
+    const mode = data.pose_mode || "robot";
+    const source = data.pose_source || "/odom";
+    const age = Number.isFinite(Number(data.pose_age_sec)) ? `${Number(data.pose_age_sec).toFixed(1)}s` : "-";
+    const received = data.pose_received ? "수신 중" : "대기";
+    modeStatusEl.textContent = `로봇 위치 : ${mode} / ${source} / ${received} / age ${age}`;
+  }
+
   if (data.map) {
     mapMeta = data.map;
-    virtualRobotPose.map_width_m = mapMeta.width_m || virtualRobotPose.map_width_m;
-    virtualRobotPose.map_height_m = mapMeta.height_m || virtualRobotPose.map_height_m;
+    robotPose.map_width_m = mapMeta.width_m || robotPose.map_width_m;
+    robotPose.map_height_m = mapMeta.height_m || robotPose.map_height_m;
     if (mapMeta.image_url && navMapImage.src !== location.origin + mapMeta.image_url) {
       navMapImage.src = mapMeta.image_url;
     }
   }
 
   if (data.pose) {
-    virtualRobotPose = {
-      ...virtualRobotPose,
+    robotPose = {
+      ...robotPose,
       x: Number(data.pose.x || 0),
       y: Number(data.pose.y || 0),
       yaw: Number(data.pose.yaw || 0),
-      map_width_m: Number(data.pose.map_width_m || virtualRobotPose.map_width_m),
-      map_height_m: Number(data.pose.map_height_m || virtualRobotPose.map_height_m)
+      map_width_m: Number(data.pose.map_width_m || robotPose.map_width_m),
+      map_height_m: Number(data.pose.map_height_m || robotPose.map_height_m)
     };
   }
 
@@ -1680,6 +1887,89 @@ function connectStateWs() {
   if (!joystick || !knob) {
     console.warn("[drive] joystick elements not found");
     return;
+  }
+
+
+  function initDrivePanelDrag() {
+    const panel = document.getElementById("drive-panel");
+    const handle = document.getElementById("drive-drag-handle");
+    if (!panel || !handle) return;
+
+    const saved = localStorage.getItem("dashboardDrivePanelPos");
+    if (saved) {
+      try {
+        const pos = JSON.parse(saved);
+        if (Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+          panel.style.right = "auto";
+          panel.style.bottom = "auto";
+          panel.style.left = `${Math.max(8, Math.min(window.innerWidth - 80, pos.left))}px`;
+          panel.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, pos.top))}px`;
+        }
+      } catch (e) {}
+    }
+
+    let panelDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    function clampPanel(left, top) {
+      const rect = panel.getBoundingClientRect();
+      const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - Math.min(rect.height, window.innerHeight - 16) - 8);
+      return {
+        left: Math.max(8, Math.min(maxLeft, left)),
+        top: Math.max(8, Math.min(maxTop, top)),
+      };
+    }
+
+    handle.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      panelDragging = true;
+      panel.classList.add("dragging-panel");
+      handle.setPointerCapture(e.pointerId);
+
+      const rect = panel.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.left = `${startLeft}px`;
+      panel.style.top = `${startTop}px`;
+    });
+
+    handle.addEventListener("pointermove", (e) => {
+      if (!panelDragging) return;
+      const next = clampPanel(startLeft + e.clientX - startX, startTop + e.clientY - startY);
+      panel.style.left = `${next.left}px`;
+      panel.style.top = `${next.top}px`;
+    });
+
+    function finishDrag(e) {
+      if (!panelDragging) return;
+      panelDragging = false;
+      panel.classList.remove("dragging-panel");
+      try {
+        const rect = panel.getBoundingClientRect();
+        localStorage.setItem("dashboardDrivePanelPos", JSON.stringify({ left: rect.left, top: rect.top }));
+      } catch (err) {}
+      try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+
+    handle.addEventListener("pointerup", finishDrag);
+    handle.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("resize", () => {
+      const rect = panel.getBoundingClientRect();
+      const next = clampPanel(rect.left, rect.top);
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.left = `${next.left}px`;
+      panel.style.top = `${next.top}px`;
+    });
   }
 
   let ws = null;
@@ -1993,11 +2283,13 @@ function connectStateWs() {
     });
   });
 
+  initDrivePanelDrag();
   connectDriveWs();
 })();
 // DASHBOARD_DRIVE_JS_END
 
 
+initMetricViewControls();
 connectStateWs();
 render();
 </script>

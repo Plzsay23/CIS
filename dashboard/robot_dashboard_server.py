@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""REAL Dashboard: show the physical LeKiwi robot on the map using /odom.
-
-This file is intentionally separate from dashboard_v2_server.py.
-- dashboard_v2_server.py: virtual pose mode
-- dashboard_real_server.py: physical robot pose from nav_msgs/Odometry
-"""
+"""Robot dashboard: show the physical LeKiwi robot on the map using /odom."""
 
 from __future__ import annotations
 
@@ -19,7 +14,7 @@ from typing import Optional
 
 import rclpy
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware # 💡 CORS 미들웨어 추가됨
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -36,22 +31,19 @@ except Exception:  # Allows the dashboard to run even when the iot package is ab
 
 
 APP_DIR = Path(__file__).resolve().parent
-HTML_PATH = APP_DIR / "dashboard_real.html"
+HTML_PATH = APP_DIR / "robot_dashboard.html"
 
 DEFAULT_MAP_YAML = Path(
     os.environ.get(
-        "DASHBOARD_REAL_MAP_YAML",
-        os.environ.get(
-            "DASHBOARD_V2_MAP_YAML",
-            "/home/lerobot/CIS/nav_maps/generated/lekiwi_map_v8.yaml",
-        ),
+        "DASHBOARD_MAP_YAML",
+        "/home/lerobot/CIS/nav_maps/generated/lekiwi_poultry_house.yaml",
     )
 )
-MAP_CACHE_DIR = APP_DIR / ".dashboard_real_cache"
+MAP_CACHE_DIR = APP_DIR / ".dashboard_cache"
 
-POSE_TOPIC = os.environ.get("DASHBOARD_REAL_POSE_TOPIC", os.environ.get("DASHBOARD_POSE_TOPIC", "/odom"))
-REAL_START_X_ENV = os.environ.get("DASHBOARD_REAL_START_X")
-REAL_START_Y_ENV = os.environ.get("DASHBOARD_REAL_START_Y")
+POSE_TOPIC = os.environ.get("DASHBOARD_POSE_TOPIC", "/odom")
+DASHBOARD_START_X_ENV = os.environ.get("DASHBOARD_START_X")
+DASHBOARD_START_Y_ENV = os.environ.get("DASHBOARD_START_Y")
 ODOM_X_SIGN = float(os.environ.get("DASHBOARD_ODOM_X_SIGN", "1.0"))
 ODOM_Y_SIGN = float(os.environ.get("DASHBOARD_ODOM_Y_SIGN", "1.0"))
 YAW_SIGN = float(os.environ.get("DASHBOARD_ODOM_YAW_SIGN", "1.0"))
@@ -169,8 +161,8 @@ def load_map_metadata() -> dict:
 MAP_META = load_map_metadata()
 MAP_WIDTH_M = float(MAP_META["width_m"])
 MAP_HEIGHT_M = float(MAP_META["height_m"])
-REAL_START_X = float(REAL_START_X_ENV) if REAL_START_X_ENV is not None else MAP_WIDTH_M * 0.10
-REAL_START_Y = float(REAL_START_Y_ENV) if REAL_START_Y_ENV is not None else MAP_HEIGHT_M * 0.50
+DASHBOARD_START_X = float(DASHBOARD_START_X_ENV) if DASHBOARD_START_X_ENV is not None else MAP_WIDTH_M * 0.10
+DASHBOARD_START_Y = float(DASHBOARD_START_Y_ENV) if DASHBOARD_START_Y_ENV is not None else MAP_HEIGHT_M * 0.50
 
 
 def ensure_map_png() -> Path:
@@ -185,7 +177,7 @@ def ensure_map_png() -> Path:
     from PIL import Image
 
     MAP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    out = MAP_CACHE_DIR / "dashboard_real_map.png"
+    out = MAP_CACHE_DIR / "dashboard_map.png"
     if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
         return out
     with Image.open(src) as im:
@@ -229,12 +221,12 @@ class ArmCommandRequest(BaseModel):
     command: str
 
 
-class DashboardRealState:
+class DashboardState:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.pose = {
-            "x": clamp(REAL_START_X, 0.0, MAP_WIDTH_M),
-            "y": clamp(REAL_START_Y, 0.0, MAP_HEIGHT_M),
+            "x": clamp(DASHBOARD_START_X, 0.0, MAP_WIDTH_M),
+            "y": clamp(DASHBOARD_START_Y, 0.0, MAP_HEIGHT_M),
             "yaw": 0.0,
             "map_width_m": MAP_WIDTH_M,
             "map_height_m": MAP_HEIGHT_M,
@@ -244,9 +236,9 @@ class DashboardRealState:
         self.last_cmd_time = 0.0
         self.sensor: Optional[dict] = None
         self.sensor_source = "fallback"
-        self.real_odom_origin: Optional[dict] = None
-        self.real_pose_received = False
-        self.last_real_pose_time = 0.0
+        self.odom_origin: Optional[dict] = None
+        self.pose_received = False
+        self.last_pose_time = 0.0
         self.pose_source = POSE_TOPIC
 
     def set_cmd(self, x: float, y: float, yaw: float) -> None:
@@ -261,28 +253,28 @@ class DashboardRealState:
     def stop_cmd(self) -> None:
         self.set_cmd(0.0, 0.0, 0.0)
 
-    def set_real_odom_pose(self, odom_x: float, odom_y: float, odom_yaw: float) -> None:
+    def set_odom_pose(self, odom_x: float, odom_y: float, odom_yaw: float) -> None:
         now = time.time()
         with self.lock:
-            if self.real_odom_origin is None:
-                self.real_odom_origin = {
+            if self.odom_origin is None:
+                self.odom_origin = {
                     "x": float(odom_x),
                     "y": float(odom_y),
                     "yaw": float(odom_yaw),
                     "received_at": now,
-                    "dashboard_start_x": clamp(REAL_START_X, 0.0, MAP_WIDTH_M),
-                    "dashboard_start_y": clamp(REAL_START_Y, 0.0, MAP_HEIGHT_M),
+                    "dashboard_start_x": clamp(DASHBOARD_START_X, 0.0, MAP_WIDTH_M),
+                    "dashboard_start_y": clamp(DASHBOARD_START_Y, 0.0, MAP_HEIGHT_M),
                 }
 
-            dx = (float(odom_x) - float(self.real_odom_origin["x"])) * ODOM_X_SIGN
-            dy = (float(odom_y) - float(self.real_odom_origin["y"])) * ODOM_Y_SIGN
+            dx = (float(odom_x) - float(self.odom_origin["x"])) * ODOM_X_SIGN
+            dy = (float(odom_y) - float(self.odom_origin["y"])) * ODOM_Y_SIGN
 
-            self.pose["x"] = clamp(float(self.real_odom_origin["dashboard_start_x"]) + dx, 0.0, MAP_WIDTH_M)
-            self.pose["y"] = clamp(float(self.real_odom_origin["dashboard_start_y"]) + dy, 0.0, MAP_HEIGHT_M)
+            self.pose["x"] = clamp(float(self.odom_origin["dashboard_start_x"]) + dx, 0.0, MAP_WIDTH_M)
+            self.pose["y"] = clamp(float(self.odom_origin["dashboard_start_y"]) + dy, 0.0, MAP_HEIGHT_M)
             self.pose["yaw"] = yaw_wrap(float(odom_yaw) * YAW_SIGN)
             self.pose["updated_at"] = now
-            self.real_pose_received = True
-            self.last_real_pose_time = now
+            self.pose_received = True
+            self.last_pose_time = now
 
     def set_sensor(self, sensor: dict, source: str) -> None:
         with self.lock:
@@ -292,16 +284,16 @@ class DashboardRealState:
     def snapshot(self) -> dict:
         with self.lock:
             pose_age = None
-            if self.last_real_pose_time > 0.0:
-                pose_age = max(0.0, time.time() - self.last_real_pose_time)
+            if self.last_pose_time > 0.0:
+                pose_age = max(0.0, time.time() - self.last_pose_time)
 
             return {
                 "ok": True,
-                "pose_mode": "real",
+                "pose_mode": "robot",
                 "pose_source": self.pose_source,
                 "pose_age_sec": pose_age,
-                "real_pose_received": self.real_pose_received,
-                "real_odom_origin": dict(self.real_odom_origin) if self.real_odom_origin else None,
+                "pose_received": self.pose_received,
+                "odom_origin": dict(self.odom_origin) if self.odom_origin else None,
                 "pose": dict(self.pose),
                 "cmd": dict(self.cmd),
                 "sensor": dict(self.sensor) if self.sensor else None,
@@ -313,8 +305,8 @@ class DashboardRealState:
                     "server_input_timeout_sec": SERVER_INPUT_TIMEOUT_SEC,
                 },
                 "odom_transform": {
-                    "start_x": REAL_START_X,
-                    "start_y": REAL_START_Y,
+                    "start_x": DASHBOARD_START_X,
+                    "start_y": DASHBOARD_START_Y,
                     "x_sign": ODOM_X_SIGN,
                     "y_sign": ODOM_Y_SIGN,
                     "yaw_sign": YAW_SIGN,
@@ -322,22 +314,21 @@ class DashboardRealState:
             }
 
 
-class DashboardRealRosBridge(Node):
-    def __init__(self, state: DashboardRealState):
-        super().__init__("dashboard_real_ros_bridge")
+class DashboardRosBridge(Node):
+    def __init__(self, state: DashboardState):
+        super().__init__("robot_dashboard_ros_bridge")
         self.state = state
-        # 💡 수정됨: /dashboard/cmd_vel -> /cmd_vel 로 변경 완료
         self.cmd_pub = self.create_publisher(Twist, "/dashboard/cmd_vel", 10)
         self.estop_pub = self.create_publisher(Bool, "/emergency_stop", 10)
         self.arm_cmd_pub = self.create_publisher(String, "/dashboard/arm_cmd", 10)
         self.odom_sub = self.create_subscription(Odometry, POSE_TOPIC, self.on_odom, 20)
-        self.get_logger().info(f"dashboard REAL mode started: pose_topic={POSE_TOPIC}, cmd_topic=/cmd_vel")
+        self.get_logger().info(f"robot dashboard started: pose_topic={POSE_TOPIC}, cmd_topic=/dashboard/cmd_vel")
 
     def on_odom(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
         q = msg.pose.pose.orientation
         yaw = quat_to_yaw(float(q.x), float(q.y), float(q.z), float(q.w))
-        self.state.set_real_odom_pose(float(p.x), float(p.y), yaw)
+        self.state.set_odom_pose(float(p.x), float(p.y), yaw)
 
     def publish_drive(self, x: float, y: float, yaw: float) -> None:
         msg = make_twist(x, y, yaw)
@@ -367,10 +358,9 @@ class DashboardRealRosBridge(Node):
         self.arm_cmd_pub.publish(msg)
 
 
-state = DashboardRealState()
-app = FastAPI(title="CIS REAL Dashboard")
+state = DashboardState()
+app = FastAPI(title="CIS Robot Dashboard")
 
-# 💡 추가됨: CORS 에러를 해결하기 위한 설정 (모든 도메인 허용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -379,7 +369,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-ros_node: Optional[DashboardRealRosBridge] = None
+ros_node: Optional[DashboardRosBridge] = None
 watchdog_task: Optional[asyncio.Task] = None
 arduino_thread: Optional[threading.Thread] = None
 arduino_stop = threading.Event()
@@ -474,7 +464,7 @@ async def startup_event() -> None:
     if not rclpy.ok():
         rclpy.init(args=None)
 
-    ros_node = DashboardRealRosBridge(state)
+    ros_node = DashboardRosBridge(state)
 
     ros_spin_stop.clear()
     ros_spin_thread = threading.Thread(target=ros_spin_loop, daemon=True)
@@ -521,7 +511,7 @@ async def shutdown_event() -> None:
 @app.get("/", response_class=HTMLResponse)
 async def index() -> HTMLResponse:
     if not HTML_PATH.exists():
-        return HTMLResponse("<h1>dashboard_real.html not found</h1>", status_code=404)
+        return HTMLResponse("<h1>robot_dashboard.html not found</h1>", status_code=404)
     return HTMLResponse(HTML_PATH.read_text(encoding="utf-8"))
 
 
@@ -530,7 +520,7 @@ async def health() -> dict:
     snap = state.snapshot()
     snap["ros_ready"] = ros_node is not None
     snap["html"] = str(HTML_PATH)
-    snap["cmd_topic"] = "/cmd_vel" # 💡 응답 데이터도 수정됨
+    snap["cmd_topic"] = "/dashboard/cmd_vel"
     snap["estop_topic"] = "/emergency_stop"
     snap["arm_cmd_topic"] = "/dashboard/arm_cmd"
     snap["allowed_arm_commands"] = sorted(ALLOWED_ARM_COMMANDS)
@@ -639,7 +629,7 @@ async def state_ws(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("DASHBOARD_REAL_PORT", "8082"))
+    port = int(os.environ.get("DASHBOARD_PORT", "8082"))
     uvicorn.run(
         app,
         host="0.0.0.0",

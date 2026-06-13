@@ -56,9 +56,9 @@ def parse_class_ids(value: str):
 
 def video_index_from_path(value: str) -> Optional[int]:
     value = str(value)
-    real = os.path.realpath(value)
+    resolved = os.path.realpath(value)
 
-    for candidate in (value, real):
+    for candidate in (value, resolved):
         m = re.fullmatch(r"/dev/video(\d+)", candidate)
         if m:
             return int(m.group(1))
@@ -71,14 +71,14 @@ def video_index_from_path(value: str) -> Optional[int]:
 
 def open_camera(camera: str, width: int, height: int, fps: int):
     idx = video_index_from_path(camera)
-    real = os.path.realpath(camera)
+    resolved = os.path.realpath(camera)
 
     attempts = []
     attempts.append(("path_v4l2", camera, cv2.CAP_V4L2))
     attempts.append(("path_any", camera, cv2.CAP_ANY))
-    if real != camera:
-        attempts.append(("realpath_v4l2", real, cv2.CAP_V4L2))
-        attempts.append(("realpath_any", real, cv2.CAP_ANY))
+    if resolved != camera:
+        attempts.append(("resolved_path_v4l2", resolved, cv2.CAP_V4L2))
+        attempts.append(("resolved_path_any", resolved, cv2.CAP_ANY))
     if idx is not None:
         attempts.append(("index_v4l2", idx, cv2.CAP_V4L2))
         attempts.append(("index_any", idx, cv2.CAP_ANY))
