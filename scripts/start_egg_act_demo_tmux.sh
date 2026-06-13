@@ -30,11 +30,11 @@ tmux split-window -t "$SESSION":0 -v \
 
 tmux select-pane -t "$SESSION":0.0
 tmux split-window -t "$SESSION":0 -v \
-  "$BASE_CMD && python tools/yolo_sports_ball_egg_from_ros_image_act.py --image-topic /camera/top/image_raw --output-topic /egg_detection --model $ROOT/yolov10n.pt --device 0 --repeat"
+  "$BASE_CMD && python tools/yolo_coco_proxy_egg_from_ros_image.py --image-topic /camera/top/image_raw --output-topic /egg_detection --model $ROOT/yolov10n.pt --device 0 --repeat"
 
 tmux select-pane -t "$SESSION":0.1
 tmux split-window -t "$SESSION":0 -v \
-  "$BASE_CMD && python tools/act_policy_bridge_ros.py --policy-type act --pretrained-name-or-path ${HF_USER}/${TASK_NAME} --device cuda --camera-topic /camera/wrist/image_raw --image-key observation.images.wrist --state-key observation.state --action-keys arm_shoulder_pan,arm_shoulder_lift,arm_elbow_flex,arm_wrist_flex,arm_wrist_roll,arm_gripper --publish-topic /act/arm_action"
+  "$BASE_CMD && python tools/act_policy_bridge_ros.py --policy-type act --pretrained-name-or-path ${HF_USER}/${TASK_NAME} --policy-device cuda --task ${TASK_NAME} --image-key observation.images.wrist --state-key observation.state --action-keys arm_shoulder_pan,arm_shoulder_lift,arm_elbow_flex,arm_wrist_flex,arm_wrist_roll,arm_gripper --arm-action-topic /act/arm_action"
 
 tmux select-pane -t "$SESSION":0.2
 tmux split-window -t "$SESSION":0 -v \

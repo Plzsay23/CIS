@@ -98,7 +98,7 @@ start_process() {
 }
 
 echo "============================================================"
-echo "LeKiwi SLAM + sports-ball-as-egg demo start"
+echo "LeKiwi SLAM + COCO proxy egg demo start"
 echo "logs: ${LOG_DIR}"
 echo "============================================================"
 
@@ -143,7 +143,7 @@ start_process "egg_detector" \
     "source /opt/ros/humble/setup.bash;
      source '${CIS_DIR}/.venv/bin/activate';
      source '${ROBOT_WS}/install/setup.bash';
-     python3 '${CIS_DIR}/tools/yolo_sports_ball_egg_detection.py' --address '${ZMQ_ADDRESS}' --model '${YOLO_MODEL}' --cam '${YOLO_CAMERA}' --depth-key '${CAMERA_DEPTH_KEY}' --camera-height '${CAMERA_HEIGHT}' --camera-pitch-deg '${CAMERA_PITCH_DEG}' --camera-forward-offset '${CAMERA_FORWARD_OFFSET}' --horizontal-fov-deg '${CAMERA_HORIZONTAL_FOV_DEG}' --vertical-fov-deg '${CAMERA_VERTICAL_FOV_DEG}' --conf '${YOLO_CONF}' --device '${YOLO_DEVICE}' $([[ '${STOP_ON_EGG_DETECTION}' == 'true' ]] && echo '--stop-on-detection') $([[ '${YOLO_VIEW}' == 'true' ]] && echo '--view')"
+     python3 '${CIS_DIR}/tools/yolo_coco_proxy_egg_from_lekiwi_obs.py' --address '${ZMQ_ADDRESS}' --model '${YOLO_MODEL}' --cam '${YOLO_CAMERA}' --depth-key '${CAMERA_DEPTH_KEY}' --camera-height '${CAMERA_HEIGHT}' --camera-pitch-deg '${CAMERA_PITCH_DEG}' --camera-forward-offset '${CAMERA_FORWARD_OFFSET}' --horizontal-fov-deg '${CAMERA_HORIZONTAL_FOV_DEG}' --vertical-fov-deg '${CAMERA_VERTICAL_FOV_DEG}' --conf '${YOLO_CONF}' --device '${YOLO_DEVICE}' $([[ '${STOP_ON_EGG_DETECTION}' == 'true' ]] && echo '--stop-on-detection') $([[ '${YOLO_VIEW}' == 'true' ]] && echo '--view')"
 
 if [[ "${ENABLE_RVIZ}" == "true" ]]; then
     start_process "rviz" \

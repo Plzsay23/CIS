@@ -5,7 +5,7 @@ cd ~/CIS
 source /opt/ros/humble/setup.bash
 source ~/CIS/.venv/bin/activate
 source ~/CIS/ros2_ws/install/setup.bash
-python3 ~/CIS/dashboard/cmd_vel_mux_node.py
+python3 ~/CIS/scripts/cmd_vel_mux_node.py
 
 2) odom/base driver
 ~/CIS/dashboard/start_lekiwi_odom_real.sh

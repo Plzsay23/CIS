@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Dashboard v2: virtual 2D map pose + Arduino sensor bridge.
-
-This is intentionally separate from dashboard_server.py so the existing
-dashboard can keep running unchanged.
-"""
+"""Dashboard v2: virtual 2D map pose + Arduino sensor bridge."""
 
 from __future__ import annotations
 

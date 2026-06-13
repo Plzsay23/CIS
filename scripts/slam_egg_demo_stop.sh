@@ -39,7 +39,7 @@ patterns=(
     "${CIS_DIR}/tools/scan_front_filter.py"
     "${CIS_DIR}/scripts/cmd_vel_mux_node.py"
     "${CIS_DIR}/tools/lekiwi_camera_obs_stream.py"
-    "${CIS_DIR}/tools/yolo_sports_ball_egg_detection.py"
+    "${CIS_DIR}/tools/yolo_coco_proxy_egg_from_lekiwi_obs.py"
     "ros2 launch ydlidar_ros2_driver ydlidar_launch.py"
     "ros2 launch lekiwi_nav lekiwi_slam_navigation.launch.py"
     "ydlidar_ros2_driver_node"

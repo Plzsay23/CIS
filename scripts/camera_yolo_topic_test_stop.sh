@@ -17,5 +17,5 @@ done
 
 sleep 1
 pkill -TERM -f "${CIS_DIR}/tools/top_camera_ros_publisher.py" 2>/dev/null || true
-pkill -TERM -f "${CIS_DIR}/tools/yolo_sports_ball_from_ros_image.py" 2>/dev/null || true
+pkill -TERM -f "${CIS_DIR}/tools/yolo_coco_proxy_from_ros_image.py" 2>/dev/null || true
 echo "Camera + YOLO topic test stopped."

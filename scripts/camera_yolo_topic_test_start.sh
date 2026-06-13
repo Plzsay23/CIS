@@ -38,13 +38,13 @@ start_process camera \
 start_process yolo \
     "source /opt/ros/humble/setup.bash;
      source '${CIS_DIR}/.venv/bin/activate';
-     python3 '${CIS_DIR}/tools/yolo_sports_ball_from_ros_image.py'"
+     python3 '${CIS_DIR}/tools/yolo_coco_proxy_from_ros_image.py'"
 
 echo
 echo "RViz Image topics:"
 echo "  /camera/top/image_raw"
 echo "  /camera/top/yolo_annotated"
 echo "Detection topic:"
-echo "  /sports_ball_detection"
+echo "  /coco_proxy_detection"
 echo "Logs:"
 echo "  ${LOG_DIR}"

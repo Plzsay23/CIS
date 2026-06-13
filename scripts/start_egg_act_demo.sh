@@ -104,7 +104,7 @@ run_node top_camera \
     --fps 30
 
 run_node yolo_egg \
-  python -u tools/yolo_sports_ball_egg_from_ros_image_act.py \
+  python -u tools/yolo_coco_proxy_egg_from_ros_image.py \
     --image-topic /camera/top/image_raw \
     --output-topic /egg_detection \
     --model "$ROOT/yolov10n.pt" \

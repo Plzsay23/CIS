@@ -18,4 +18,4 @@ set -u
 
 export DASHBOARD_V2_MAP_YAML="${DASHBOARD_V2_MAP_YAML:-/home/lerobot/CIS/nav_maps/generated/lekiwi_map_v8.yaml}"
 
-exec python3 /home/lerobot/CIS/dashboard/dashboard_v2.py
+exec python3 /home/lerobot/CIS/dashboard/dashboard_v2_server.py

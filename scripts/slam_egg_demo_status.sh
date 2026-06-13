@@ -87,7 +87,7 @@ for node in \
     /bt_navigator \
     /egg_map_marker \
     /egg_approach \
-    /sports_ball_egg_detector \
+    /coco_proxy_egg_detector \
     /rviz
 do
     if has_node "${node}"; then
@@ -143,8 +143,8 @@ fi
 
 echo
 echo "[Likely Problems]"
-if ! has_node /sports_ball_egg_detector; then
-    echo "- YOLO detector is not running. Check ${LOG_DIR}/egg_detector.log"
+if ! has_node /coco_proxy_egg_detector; then
+    echo "- YOLO COCO proxy egg detector is not running. Check ${LOG_DIR}/egg_detector.log"
 fi
 if [[ ! -f "${PID_DIR}/camera_stream.pid" ]] || ! kill -0 "$(cat "${PID_DIR}/camera_stream.pid" 2>/dev/null || true)" 2>/dev/null; then
     echo "- Camera stream is not running. Check ${LOG_DIR}/camera_stream.log"

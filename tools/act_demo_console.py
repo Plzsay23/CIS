@@ -405,7 +405,7 @@ def main():
     # 데모 방해 프로세스 정리
     run_pkill("keyboard_drive_node.py")
     run_pkill("wrist_template_match_detector_node")
-    run_pkill("yolo_wrist_sports_ball_detector_node")
+    run_pkill("yolo_wrist_coco_proxy_detector_node")
     run_pkill("opencv_wrist_white_egg_detector_node")
     run_pkill("egg_approach_node")
 
